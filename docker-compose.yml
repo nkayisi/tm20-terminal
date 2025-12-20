@@ -1,0 +1,60 @@
+services:
+  django-ws:
+    build: .
+    container_name: tm20_websocket
+    command: daphne -b 0.0.0.0 -p 7788 config.asgi:application
+    volumes:
+      - .:/app
+    ports:
+      - "7788:7788"
+    environment:
+      - DEBUG=1
+      - DATABASE_URL=postgres://tm20_user:tm20_password@postgres:5432/tm20_db
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_SECRET_KEY=change-this-in-production-to-a-secure-random-key
+    depends_on:
+      - postgres
+      - redis
+
+  django-http:
+    build: .
+    container_name: tm20_admin
+    command: >
+      sh -c "python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --reload"
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=1
+      - DATABASE_URL=postgres://tm20_user:tm20_password@postgres:5432/tm20_db
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_SECRET_KEY=change-this-in-production-to-a-secure-random-key
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=tm20_db
+      - POSTGRES_USER=tm20_user
+      - POSTGRES_PASSWORD=tm20_password
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:

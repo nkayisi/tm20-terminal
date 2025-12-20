@@ -1,0 +1,25 @@
+# Django & Core
+Django>=4.2,<5.0
+channels>=4.0.0
+channels-redis>=4.1.0
+daphne>=4.0.0
+
+# Database
+psycopg2-binary>=2.9.9
+
+# Async support
+uvloop>=0.19.0;platform_system!="Windows"
+
+# Utilities
+python-dotenv>=1.0.0
+orjson>=3.9.0
+
+# Security
+django-cors-headers>=4.3.0
+
+# Logging & Monitoring
+structlog>=23.2.0
+
+# WSGI Server
+gunicorn>=21.2.0
+whitenoise>=6.6.0
