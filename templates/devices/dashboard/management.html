@@ -1,0 +1,340 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestion - TM20 Dashboard</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"
+    />
+    <style>
+      :root {
+        --primary-color: #4f46e5;
+        --secondary-color: #7c3aed;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #ef4444;
+        --dark-bg: #1e293b;
+        --card-bg: #ffffff;
+      }
+
+      body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      .dashboard-container {
+        padding: 2rem;
+      }
+
+      .dashboard-header {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      }
+
+      .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border-left: 4px solid;
+      }
+
+      .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+      }
+
+      .stat-card.primary {
+        border-left-color: var(--primary-color);
+      }
+      .stat-card.success {
+        border-left-color: var(--success-color);
+      }
+      .stat-card.warning {
+        border-left-color: var(--warning-color);
+      }
+      .stat-card.danger {
+        border-left-color: var(--danger-color);
+      }
+
+      .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        margin-bottom: 1rem;
+      }
+
+      .stat-icon.primary {
+        background: rgba(79, 70, 229, 0.1);
+        color: var(--primary-color);
+      }
+      .stat-icon.success {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success-color);
+      }
+      .stat-icon.warning {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--warning-color);
+      }
+      .stat-icon.danger {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger-color);
+      }
+
+      .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+        line-height: 1;
+      }
+
+      .stat-label {
+        color: #64748b;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+      }
+
+      .action-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+      }
+
+      .action-card:hover {
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+      }
+
+      .btn-custom {
+        border-radius: 8px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+
+      .btn-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .recent-mappings {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+      }
+
+      .mapping-item {
+        padding: 1rem;
+        border-bottom: 1px solid #e2e8f0;
+        transition: background 0.2s ease;
+      }
+
+      .mapping-item:last-child {
+        border-bottom: none;
+      }
+
+      .mapping-item:hover {
+        background: #f8fafc;
+      }
+
+      .badge-custom {
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <div class="dashboard-header">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h1 class="mb-2">
+              <i class="bi bi-gear-fill text-primary"></i> Gestion du Système
+            </h1>
+            <p class="text-muted mb-0">
+              Configuration et synchronisation des terminaux biométriques
+            </p>
+          </div>
+          <a
+            href="{% url 'devices:dashboard:index' %}"
+            class="btn btn-outline-primary btn-custom"
+          >
+            <i class="bi bi-speedometer2"></i> Dashboard Principal
+          </a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-3">
+          <div class="stat-card primary">
+            <div class="stat-icon primary">
+              <i class="bi bi-hdd-network"></i>
+            </div>
+            <h2 class="stat-value">{{ terminals_count }}</h2>
+            <p class="stat-label">Terminaux Actifs</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card success">
+            <div class="stat-icon success">
+              <i class="bi bi-cloud-check"></i>
+            </div>
+            <h2 class="stat-value">{{ configs_count }}</h2>
+            <p class="stat-label">Services Tiers Configurés</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card warning">
+            <div class="stat-icon warning">
+              <i class="bi bi-clock-history"></i>
+            </div>
+            <h2 class="stat-value">{{ schedules_count }}</h2>
+            <p class="stat-label">Horaires Configurés</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card danger">
+            <div class="stat-icon danger">
+              <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <h2 class="stat-value">{{ pending_attendance }}</h2>
+            <p class="stat-label">Pointages en Attente</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6">
+          <div class="action-card">
+            <h4 class="mb-3">
+              <i class="bi bi-cloud-arrow-up text-primary"></i> Services Tiers
+            </h4>
+            <p class="text-muted mb-3">
+              Configurez les connexions avec vos systèmes externes pour
+              synchroniser les utilisateurs et les pointages.
+            </p>
+            <a
+              href="{% url 'devices:dashboard:third_party_configs' %}"
+              class="btn btn-primary btn-custom w-100"
+            >
+              <i class="bi bi-gear"></i> Gérer les Configurations
+            </a>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="action-card">
+            <h4 class="mb-3">
+              <i class="bi bi-calendar-week text-success"></i> Horaires de
+              Travail
+            </h4>
+            <p class="text-muted mb-3">
+              Définissez les horaires de travail pour chaque terminal (arrivée,
+              pause, sortie).
+            </p>
+            <a
+              href="{% url 'devices:dashboard:schedules' %}"
+              class="btn btn-success btn-custom w-100"
+            >
+              <i class="bi bi-clock"></i> Gérer les Horaires
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6">
+          <div class="action-card">
+            <h4 class="mb-3">
+              <i class="bi bi-people text-info"></i> Synchronisation
+              Utilisateurs
+            </h4>
+            <p class="text-muted mb-3">
+              Récupérez les utilisateurs depuis vos services tiers et
+              chargez-les sur les terminaux.
+            </p>
+            <a
+              href="{% url 'devices:dashboard:user_sync' %}"
+              class="btn btn-info btn-custom w-100"
+            >
+              <i class="bi bi-arrow-repeat"></i> Synchroniser les Utilisateurs
+            </a>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="action-card">
+            <h4 class="mb-3">
+              <i class="bi bi-clock-history text-warning"></i> Synchronisation
+              Pointages
+            </h4>
+            <p class="text-muted mb-3">
+              Envoyez automatiquement les pointages vers vos systèmes externes.
+            </p>
+            <a
+              href="{% url 'devices:dashboard:attendance_sync' %}"
+              class="btn btn-warning btn-custom w-100"
+            >
+              <i class="bi bi-send"></i> Gérer la Synchronisation
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {% if recent_mappings %}
+      <div class="recent-mappings">
+        <h4 class="mb-3"><i class="bi bi-link-45deg"></i> Mappings Récents</h4>
+        {% for mapping in recent_mappings %}
+        <div class="mapping-item">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <strong>{{ mapping.terminal.sn }}</strong>
+              <i class="bi bi-arrow-left-right mx-2 text-muted"></i>
+              <span class="text-primary">{{ mapping.config.name }}</span>
+            </div>
+            <div>
+              {% if mapping.sync_users %}
+              <span class="badge-custom bg-info text-white">
+                <i class="bi bi-people"></i> Users
+              </span>
+              {% endif %} {% if mapping.sync_attendance %}
+              <span class="badge-custom bg-success text-white">
+                <i class="bi bi-clock"></i> Attendance
+              </span>
+              {% endif %}
+            </div>
+          </div>
+          <small class="text-muted">
+            Dernière mise à jour: {{ mapping.updated_at|date:"d/m/Y H:i" }}
+          </small>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

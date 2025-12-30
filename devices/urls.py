@@ -6,6 +6,7 @@ from django.urls import path, include
 
 from . import views
 from .dashboard import urls as dashboard_urls
+from . import api_urls
 
 app_name = 'devices'
 
@@ -17,6 +18,9 @@ urlpatterns = [
     path('terminals/<str:sn>/users/', views.TerminalUsersView.as_view(), name='terminal-users'),
     path('terminals/<str:sn>/logs/', views.TerminalLogsView.as_view(), name='terminal-logs'),
     path('connected/', views.ConnectedTerminalsView.as_view(), name='connected-terminals'),
+    
+    # API REST pour gestion avancée
+    path('api/', include(api_urls)),
     
     # Dashboard
     path('dashboard/', include(dashboard_urls, namespace='dashboard')),
