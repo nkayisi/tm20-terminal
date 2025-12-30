@@ -11,7 +11,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-secret-key-change-in-production
 
 DEBUG = os.getenv('DEBUG', '0') == '1'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,django.tm20-server.orb.local').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 INSTALLED_APPS = [
     'daphne',
@@ -60,11 +60,13 @@ WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
 # Database PostgreSQL
+# Supporte postgres:// ET postgresql:// (Render utilise postgresql://)
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgres://tm20_user:tm20_password@localhost:5432/tm20_db')
 
 if DATABASE_URL:
     import re
-    match = re.match(r'postgres://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', DATABASE_URL)
+    # Regex qui supporte postgres:// ET postgresql://
+    match = re.match(r'postgres(?:ql)?://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', DATABASE_URL)
     if match:
         DATABASES = {
             'default': {
@@ -74,6 +76,10 @@ if DATABASE_URL:
                 'PASSWORD': match.group(2),
                 'HOST': match.group(3),
                 'PORT': match.group(4),
+                'CONN_MAX_AGE': 600,  # Connection pooling
+                'OPTIONS': {
+                    'connect_timeout': 10,
+                },
             }
         }
     else:
@@ -131,6 +137,16 @@ STORAGES = {
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Cache Configuration (Redis)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': os.getenv('REDIS_URL', 'redis://redis:6379/0'),
+        'KEY_PREFIX': 'tm20',
+        'TIMEOUT': 300,
+    }
+}
 
 # TM20 Protocol Settings
 TM20_SETTINGS = {

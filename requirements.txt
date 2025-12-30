@@ -20,6 +20,7 @@ django-cors-headers>=4.3.0
 # Logging & Monitoring
 structlog>=23.2.0
 
-# WSGI Server
+# ASGI/WSGI Servers
 gunicorn>=21.2.0
+uvicorn[standard]>=0.27.0
 whitenoise>=6.6.0

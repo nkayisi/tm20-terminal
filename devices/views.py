@@ -12,9 +12,9 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from .consumers import ConnectionManager
+from .core.device_manager import DeviceManager
 from .models import AttendanceLog, BiometricUser, CommandQueue, Terminal
-from .protocol import TM20Protocol
+from .protocol import CommandBuilder
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -133,29 +133,29 @@ class SendCommandView(View):
     def _build_command_payload(self, command: str, params: dict) -> dict:
         """Construit le payload de la commande"""
         builders = {
-            'opendoor': lambda p: TM20Protocol.build_opendoor_command(
+            'opendoor': lambda p: CommandBuilder.opendoor(
                 p.get('door', 1), p.get('delay', 5)
             ),
-            'settime': lambda p: TM20Protocol.build_settime_command(
+            'settime': lambda p: CommandBuilder.settime(
                 p.get('time')
             ),
-            'gettime': lambda p: TM20Protocol.build_gettime_command(),
-            'getuserlist': lambda p: TM20Protocol.build_getuserlist_command(
+            'gettime': lambda p: CommandBuilder.gettime(),
+            'getuserlist': lambda p: CommandBuilder.getuserlist(
                 p.get('stn', True)
             ),
-            'getnewlog': lambda p: TM20Protocol.build_getnewlog_command(
+            'getnewlog': lambda p: CommandBuilder.getnewlog(
                 p.get('stn', True)
             ),
-            'deleteuser': lambda p: TM20Protocol.build_deleteuser_command(
+            'deleteuser': lambda p: CommandBuilder.deleteuser(
                 p.get('enrollid'), p.get('backupnum', 13)
             ),
-            'enableuser': lambda p: TM20Protocol.build_enableuser_command(
+            'enableuser': lambda p: CommandBuilder.enableuser(
                 p.get('enrollid'), p.get('enable', True)
             ),
-            'reboot': lambda p: TM20Protocol.build_reboot_command(),
-            'cleanlog': lambda p: TM20Protocol.build_cleanlog_command(),
-            'cleanuser': lambda p: TM20Protocol.build_cleanuser_command(),
-            'getdevinfo': lambda p: TM20Protocol.build_getdevinfo_command(),
+            'reboot': lambda p: CommandBuilder.reboot(),
+            'cleanlog': lambda p: CommandBuilder.cleanlog(),
+            'cleanuser': lambda p: CommandBuilder.cleanuser(),
+            'getdevinfo': lambda p: CommandBuilder.getdevinfo(),
         }
         
         if command in builders:
@@ -164,7 +164,8 @@ class SendCommandView(View):
     
     async def _try_send_now(self, sn: str, payload: dict) -> bool:
         """Tente d'envoyer immédiatement au terminal"""
-        return await ConnectionManager.send_to_terminal(sn, payload)
+        device_manager = DeviceManager.get_instance()
+        return await device_manager.send_to_device(sn, payload)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -247,7 +248,8 @@ class ConnectedTerminalsView(View):
     """Liste des terminaux actuellement connectés"""
     
     def get(self, request):
-        connected = asyncio.run(ConnectionManager.get_connected_terminals())
+        device_manager = DeviceManager.get_instance()
+        connected = asyncio.run(device_manager.get_connected_sns())
         return JsonResponse({
             'connected': connected,
             'count': len(connected)
