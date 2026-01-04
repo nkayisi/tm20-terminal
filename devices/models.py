@@ -80,12 +80,25 @@ class Terminal(models.Model):
 
 
 class BiometricUser(models.Model):
-    """Utilisateur biométrique enregistré sur un terminal"""
+    """Utilisateur biométrique enregistré sur un terminal
+    
+    Chaque utilisateur est lié à un seul terminal et possède:
+    - enrollid: ID interne utilisé par le terminal (auto-généré ou manuel)
+    - external_id: ID provenant du système source externe (pour éviter les doublons)
+    """
     
     ADMIN_CHOICES = [
         (0, 'Utilisateur normal'),
         (1, 'Administrateur'),
         (2, 'Super utilisateur'),
+    ]
+    
+    SYNC_STATUS_CHOICES = [
+        ('local', 'Créé localement'),
+        ('synced', 'Synchronisé depuis service tiers'),
+        ('pending_sync', 'En attente de synchronisation vers terminal'),
+        ('synced_to_terminal', 'Synchronisé vers terminal'),
+        ('error', 'Erreur de synchronisation'),
     ]
     
     terminal = models.ForeignKey(
@@ -94,15 +107,27 @@ class BiometricUser(models.Model):
         related_name='users',
         verbose_name="Terminal"
     )
+    
     enrollid = models.IntegerField(
         db_index=True,
-        verbose_name="ID d'enrôlement"
+        verbose_name="ID d'enrôlement",
+        help_text="ID interne utilisé par le terminal biométrique"
     )
+    
+    external_id = models.CharField(
+        max_length=100,
+        blank=True,
+        db_index=True,
+        verbose_name="ID externe",
+        help_text="ID utilisateur provenant du système source (RH, ERP, etc.)"
+    )
+    
     name = models.CharField(
         max_length=100,
         blank=True,
-        verbose_name="Nom"
+        verbose_name="Nom complet"
     )
+    
     admin = models.IntegerField(
         choices=ADMIN_CHOICES,
         default=0,
@@ -130,6 +155,37 @@ class BiometricUser(models.Model):
         verbose_name="Date de fin validité"
     )
     
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Métadonnées",
+        help_text="Données supplémentaires provenant du service tiers"
+    )
+    
+    source_config = models.ForeignKey(
+        'ThirdPartyConfig',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='users',
+        verbose_name="Source de synchronisation",
+        help_text="Configuration du service tiers d'où provient l'utilisateur"
+    )
+    
+    sync_status = models.CharField(
+        max_length=20,
+        choices=SYNC_STATUS_CHOICES,
+        default='local',
+        db_index=True,
+        verbose_name="Statut de synchronisation"
+    )
+    
+    last_synced_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Dernière synchronisation"
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -137,11 +193,38 @@ class BiometricUser(models.Model):
         db_table = 'tm20_biometric_users'
         verbose_name = "Utilisateur biométrique"
         verbose_name_plural = "Utilisateurs biométriques"
-        unique_together = ['terminal', 'enrollid']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['terminal', 'enrollid'],
+                name='unique_terminal_enrollid'
+            ),
+            models.UniqueConstraint(
+                fields=['terminal', 'external_id'],
+                condition=models.Q(external_id__gt=''),
+                name='unique_terminal_external_id'
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['terminal', 'external_id']),
+            models.Index(fields=['terminal', 'sync_status']),
+        ]
         ordering = ['enrollid']
     
     def __str__(self):
         return f"{self.name or f'User#{self.enrollid}'} ({self.terminal.sn})"
+    
+    @classmethod
+    def get_next_enrollid(cls, terminal):
+        """Génère le prochain enrollid disponible pour un terminal"""
+        last_user = cls.objects.filter(terminal=terminal).order_by('-enrollid').first()
+        return (last_user.enrollid + 1) if last_user else 1
+    
+    def mark_synced_to_terminal(self):
+        """Marque l'utilisateur comme synchronisé vers le terminal"""
+        from django.utils import timezone
+        self.sync_status = 'synced_to_terminal'
+        self.last_synced_at = timezone.now()
+        self.save(update_fields=['sync_status', 'last_synced_at', 'updated_at'])
 
 
 class BiometricCredential(models.Model):

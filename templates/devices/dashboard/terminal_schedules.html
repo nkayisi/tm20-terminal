@@ -1,0 +1,444 @@
+{% extends "devices/dashboard/base.html" %} 
+{% block title %}Horaires de Travail{% endblock %} 
+{% block content %}
+<div class="space-y-6 animate-fade-in">
+  <!-- Messages Django -->
+  {% if messages %}
+  <div class="space-y-2">
+    {% for message in messages %}
+    <div
+      class="p-4 rounded-lg border {% if message.tags == 'success' %}bg-green-50 border-green-200 text-green-800{% elif message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-blue-50 border-blue-200 text-blue-800{% endif %}"
+    >
+      <div class="flex items-center">
+        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          {% if message.tags == 'success' %}
+          <path
+            fill-rule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+            clip-rule="evenodd"
+          ></path>
+          {% else %}
+          <path
+            fill-rule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+            clip-rule="evenodd"
+          ></path>
+          {% endif %}
+        </svg>
+        {{ message }}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Page Header -->
+  <div>
+    <h1 class="text-3xl font-bold text-gray-900">Horaires de Travail</h1>
+    <p class="mt-1 text-sm text-gray-500">
+      Configurez les horaires de travail pour chaque terminal
+    </p>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <!-- Terminals List -->
+    <div class="lg:col-span-1">
+      <div
+        class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+      >
+        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
+          <h3 class="text-sm font-semibold text-gray-900">Terminaux</h3>
+        </div>
+        <div
+          class="divide-y divide-gray-200 max-h-96 overflow-y-auto scrollbar-thin"
+        >
+          {% for terminal in terminals %}
+          <a
+            href="{% url 'devices:dashboard:schedules_terminal' terminal.id %}"
+            class="block px-4 py-3 hover:bg-gray-50 transition-colors duration-150 {% if selected_terminal.id == terminal.id %}bg-primary-50 border-l-4 border-primary-600{% endif %}"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 truncate">
+                  {{ terminal.sn }}
+                </p>
+                <p class="text-xs text-gray-500 truncate">
+                  {{ terminal.model|default:"TM20" }}
+                </p>
+              </div>
+              <span
+                class="inline-flex items-center justify-center w-6 h-6 text-xs font-medium rounded-full {% if selected_terminal.id == terminal.id %}bg-primary-600 text-white{% else %}bg-gray-100 text-gray-600{% endif %}"
+              >
+                {{ terminal.schedules.count }}
+              </span>
+            </div>
+          </a>
+          {% empty %}
+          <div class="p-8 text-center">
+            <svg
+              class="w-12 h-12 mx-auto text-gray-400 mb-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+              ></path>
+            </svg>
+            <p class="text-sm text-gray-500">Aucun terminal actif</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Schedules Content -->
+    <div class="lg:col-span-3 space-y-6">
+      {% if selected_terminal %}
+        <!-- Schedules Table -->
+        <div
+          class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+        >
+          <div
+            class="px-6 py-4 border-b border-gray-200 flex items-center justify-between"
+          >
+            <h3 class="text-lg font-semibold text-gray-900">
+              Horaires de {{ selected_terminal.sn }}
+            </h3>
+            <button
+              onclick="document.getElementById('addScheduleModal').classList.remove('hidden')"
+              class="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all duration-200"
+            >
+              <svg
+                class="w-4 h-4 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                ></path>
+              </svg>
+              Ajouter
+            </button>
+          </div>
+          {% if schedules %}
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Jour
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Arrivée
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Pause
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Sortie
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Tolérance
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                {% for schedule in schedules %}
+                <tr class="hover:bg-gray-50 transition-colors duration-150">
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">
+                      {{ schedule.get_weekday_display }}
+                    </div>
+                    <div class="text-xs text-gray-500">{{ schedule.name }}</div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {{ schedule.check_in_time|time:"H:i" }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {% if schedule.break_start_time %} {{
+                    schedule.break_start_time|time:"H:i" }} - {{
+                    schedule.break_end_time|time:"H:i" }} {% else %}
+                    <span class="text-gray-400">-</span>
+                    {% endif %}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {{ schedule.check_out_time|time:"H:i" }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ schedule.tolerance_minutes }} min
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <form
+                      method="post"
+                      class="inline"
+                      onsubmit="return confirm('Supprimer cet horaire ?');"
+                    >
+                      {% csrf_token %}
+                      <input type="hidden" name="delete_schedule" value="1" />
+                      <input
+                        type="hidden"
+                        name="schedule_id"
+                        value="{{ schedule.id }}"
+                      />
+                      <button
+                        type="submit"
+                        class="text-red-600 hover:text-red-900"
+                      >
+                        <svg
+                          class="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          ></path>
+                        </svg>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="p-12 text-center">
+            <svg
+              class="w-16 h-16 mx-auto text-gray-400 mb-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              ></path>
+            </svg>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">
+              Aucun horaire configuré
+            </h3>
+            <p class="text-sm text-gray-500 mb-6">
+              Ajoutez des horaires pour ce terminal.
+            </p>
+            <button
+              onclick="document.getElementById('addScheduleModal').classList.remove('hidden')"
+              class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800"
+            >
+              <svg
+                class="w-5 h-5 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                ></path>
+              </svg>
+              Ajouter un horaire
+            </button>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Week View -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Vue Semaine</h3>
+          <div class="grid grid-cols-7 gap-2">
+            {% for day in weekdays %}
+            <div class="text-center">
+              <div class="text-xs font-semibold text-gray-500 uppercase mb-2">
+                {{ day.label|slice:":3" }}
+              </div>
+              <div class="space-y-1">
+                {% for schedule in schedules %} 
+                {% if schedule.weekday == day.value %}
+                <div
+                  class="bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-lg p-2 text-xs"
+                >
+                  <div class="font-medium">
+                    {{ schedule.check_in_time|time:"H:i" }}
+                  </div>
+                  <div class="opacity-75">
+                    {{ schedule.check_out_time|time:"H:i" }}
+                  </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div
+          class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center"
+        >
+          <svg
+            class="w-16 h-16 mx-auto text-gray-400 mb-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"
+            ></path>
+          </svg>
+          <h3 class="text-lg font-medium text-gray-900 mb-2">
+            Sélectionnez un terminal
+          </h3>
+          <p class="text-sm text-gray-500">
+            Choisissez un terminal dans la liste pour gérer ses horaires.
+          </p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Add Schedule Modal -->
+{% if selected_terminal %}
+<div id="addScheduleModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+  <div
+    class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0"
+  >
+    <div
+      class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+      onclick="document.getElementById('addScheduleModal').classList.add('hidden')"
+    ></div>
+
+    <div
+      class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full"
+    >
+      <form method="post" class="p-6">
+        {% csrf_token %}
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-lg font-semibold text-gray-900">Nouvel Horaire</h3>
+          <button
+            type="button"
+            onclick="document.getElementById('addScheduleModal').classList.add('hidden')"
+            class="text-gray-400 hover:text-gray-500"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              ></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >{{ form.name.label }}</label
+            >
+            {{ form.name }}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >{{ form.weekday.label }}</label
+            >
+            {{ form.weekday }}
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >{{ form.check_in_time.label }}</label
+              >
+              {{ form.check_in_time }}
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >{{ form.check_out_time.label }}</label
+              >
+              {{ form.check_out_time }}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >{{ form.break_start_time.label }}</label
+              >
+              {{ form.break_start_time }}
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >{{ form.break_end_time.label }}</label
+              >
+              {{ form.break_end_time }}
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >{{ form.tolerance_minutes.label }}</label
+            >
+            {{ form.tolerance_minutes }}
+          </div>
+        </div>
+
+        <div class="flex justify-end mt-6 space-x-3">
+          <button
+            type="button"
+            onclick="document.getElementById('addScheduleModal').classList.add('hidden')"
+            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            Annuler
+          </button>
+          <button
+            type="submit"
+            class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800"
+          >
+            Créer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %} 
+{% endblock %}

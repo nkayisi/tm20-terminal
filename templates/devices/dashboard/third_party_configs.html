@@ -1,0 +1,299 @@
+{% extends "devices/dashboard/base.html" %} 
+{% block title %}Services Tiers{% endblock %} 
+{% block content %}
+<div class="space-y-6 animate-fade-in">
+  <!-- Messages Django -->
+  {% if messages %}
+  <div class="space-y-2">
+    {% for message in messages %}
+    <div
+      class="p-4 rounded-lg border {% if message.tags == 'success' %}bg-green-50 border-green-200 text-green-800{% elif message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% elif message.tags == 'warning' %}bg-yellow-50 border-yellow-200 text-yellow-800{% else %}bg-blue-50 border-blue-200 text-blue-800{% endif %}"
+    >
+      <div class="flex items-center">
+        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          {% if message.tags == 'success' %}
+          <path
+            fill-rule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+            clip-rule="evenodd"
+          ></path>
+          {% else %}
+          <path
+            fill-rule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+            clip-rule="evenodd"
+          ></path>
+          {% endif %}
+        </svg>
+        {{ message }}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Page Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">Services Tiers</h1>
+      <p class="mt-1 text-sm text-gray-500">
+        Configurez les connexions avec vos systèmes externes
+      </p>
+    </div>
+    <button
+      onclick="document.getElementById('addConfigModal').classList.remove('hidden')"
+      class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all duration-200 shadow-sm hover:shadow-md"
+    >
+      <svg
+        class="w-5 h-5 mr-2"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+        ></path>
+      </svg>
+      Nouvelle Configuration
+    </button>
+  </div>
+
+  <!-- Configs Grid -->
+  {% if configs %}
+  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    {% for config in configs %}
+    <div
+      class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden card-hover"
+    >
+      <div class="p-6">
+        <div class="flex items-start justify-between mb-4">
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-gray-900">
+              {{ config.name }}
+            </h3>
+            <p class="mt-1 text-sm text-gray-500 truncate">
+              {{ config.base_url }}
+            </p>
+          </div>
+          <span
+            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if config.is_active %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}"
+          >
+            {% if config.is_active %}Actif{% else %}Inactif{% endif %}
+          </span>
+        </div>
+
+        <div class="space-y-2 mb-4">
+          {% if config.users_endpoint %}
+          <div class="flex items-center text-sm text-gray-600">
+            <svg
+              class="w-4 h-4 mr-2 text-blue-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+              ></path>
+            </svg>
+            <code class="text-xs">{{ config.users_endpoint }}</code>
+          </div>
+          {% endif %} {% if config.attendance_endpoint %}
+          <div class="flex items-center text-sm text-gray-600">
+            <svg
+              class="w-4 h-4 mr-2 text-green-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              ></path>
+            </svg>
+            <code class="text-xs">{{ config.attendance_endpoint }}</code>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div
+    class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center"
+  >
+    <svg
+      class="w-16 h-16 mx-auto text-gray-400 mb-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
+      ></path>
+    </svg>
+    <h3 class="text-lg font-medium text-gray-900 mb-2">Aucune configuration</h3>
+    <p class="text-sm text-gray-500 mb-6">
+      Créez votre première configuration de service tiers pour commencer.
+    </p>
+    <button
+      onclick="document.getElementById('addConfigModal').classList.remove('hidden')"
+      class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all duration-200"
+    >
+      <svg
+        class="w-5 h-5 mr-2"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+        ></path>
+      </svg>
+      Créer une configuration
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Add Config Modal -->
+<div id="addConfigModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+  <div
+    class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0"
+  >
+    <div
+      class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+      onclick="document.getElementById('addConfigModal').classList.add('hidden')"
+    ></div>
+
+    <div
+      class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full"
+    >
+      <form method="post" class="p-6">
+        {% csrf_token %}
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-lg font-semibold text-gray-900">
+            Nouvelle Configuration
+          </h3>
+          <button
+            type="button"
+            onclick="document.getElementById('addConfigModal').classList.add('hidden')"
+            class="text-gray-400 hover:text-gray-500"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              ></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >{{ form.name.label }}</label
+              >
+              {{ form.name }} {% if form.name.errors %}
+              <p class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</p>
+              {% endif %}
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >{{ form.base_url.label }}</label
+              >
+              {{ form.base_url }} {% if form.base_url.errors %}
+              <p class="mt-1 text-sm text-red-600">
+                {{ form.base_url.errors.0 }}
+              </p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >{{ form.description.label }}</label
+            >
+            {{ form.description }}
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >{{ form.users_endpoint.label }}</label
+              >
+              {{ form.users_endpoint }}
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >{{ form.attendance_endpoint.label }}</label
+              >
+              {{ form.attendance_endpoint }}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >{{ form.auth_type.label }}</label
+              >
+              {{ form.auth_type }}
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >{{ form.auth_token.label }}</label
+              >
+              {{ form.auth_token }}
+            </div>
+          </div>
+
+          <div class="flex items-center">
+            {{ form.is_active }}
+            <label class="ml-2 text-sm font-medium text-gray-700"
+              >{{ form.is_active.label }}</label
+            >
+          </div>
+        </div>
+
+        <div class="flex justify-end mt-6 space-x-3">
+          <button
+            type="button"
+            onclick="document.getElementById('addConfigModal').classList.add('hidden')"
+            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            Annuler
+          </button>
+          <button
+            type="submit"
+            class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800"
+          >
+            Créer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

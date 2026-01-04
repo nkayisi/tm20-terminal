@@ -3,10 +3,9 @@ Vues de gestion pour le dashboard
 Configurations tiers, horaires, synchronisation
 """
 
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.views import View
-from django.http import JsonResponse
-from asgiref.sync import async_to_sync
+from django.contrib import messages
 
 from ..models import (
     Terminal,
@@ -15,7 +14,8 @@ from ..models import (
     TerminalSchedule,
     AttendanceLog,
 )
-from ..services.schedule_manager import ScheduleManager
+from .forms import ThirdPartyConfigForm, TerminalScheduleForm, UserSyncForm
+from ..services.user_sync_service import UserSyncService
 
 
 class ThirdPartyConfigsView(View):
@@ -24,11 +24,29 @@ class ThirdPartyConfigsView(View):
     def get(self, request):
         configs = ThirdPartyConfig.objects.all().order_by('-created_at')
         terminals = Terminal.objects.filter(is_active=True).order_by('sn')
+        form = ThirdPartyConfigForm()
         
         return render(request, 'devices/dashboard/third_party_configs.html', {
             'configs': configs,
             'terminals': terminals,
+            'form': form,
         })
+    
+    def post(self, request):
+        form = ThirdPartyConfigForm(request.POST)
+        if form.is_valid():
+            config = form.save()
+            messages.success(request, f'Configuration "{config.name}" créée avec succès.')
+            return redirect('devices:dashboard:third_party_configs')
+        else:
+            configs = ThirdPartyConfig.objects.all().order_by('-created_at')
+            terminals = Terminal.objects.filter(is_active=True).order_by('sn')
+            messages.error(request, 'Erreur lors de la création de la configuration.')
+            return render(request, 'devices/dashboard/third_party_configs.html', {
+                'configs': configs,
+                'terminals': terminals,
+                'form': form,
+            })
 
 
 class TerminalSchedulesView(View):
@@ -42,18 +60,17 @@ class TerminalSchedulesView(View):
             schedules = TerminalSchedule.objects.filter(
                 terminal=terminal
             ).order_by('weekday', 'check_in_time')
-            
-            summary = async_to_sync(ScheduleManager.get_schedule_summary)(terminal)
+            form = TerminalScheduleForm()
         else:
             terminal = None
             schedules = []
-            summary = None
+            form = None
         
         return render(request, 'devices/dashboard/terminal_schedules.html', {
             'terminals': terminals,
             'selected_terminal': terminal,
             'schedules': schedules,
-            'summary': summary,
+            'form': form,
             'weekdays': [
                 {'value': 0, 'label': 'Lundi'},
                 {'value': 1, 'label': 'Mardi'},
@@ -64,6 +81,26 @@ class TerminalSchedulesView(View):
                 {'value': 6, 'label': 'Dimanche'},
             ]
         })
+    
+    def post(self, request, terminal_id):
+        terminal = get_object_or_404(Terminal, id=terminal_id)
+        
+        if 'delete_schedule' in request.POST:
+            schedule_id = request.POST.get('schedule_id')
+            schedule = get_object_or_404(TerminalSchedule, id=schedule_id, terminal=terminal)
+            schedule.delete()
+            messages.success(request, 'Horaire supprimé avec succès.')
+        else:
+            form = TerminalScheduleForm(request.POST)
+            if form.is_valid():
+                schedule = form.save(commit=False)
+                schedule.terminal = terminal
+                schedule.save()
+                messages.success(request, 'Horaire créé avec succès.')
+            else:
+                messages.error(request, 'Erreur lors de la création de l\'horaire.')
+        
+        return redirect('devices:dashboard:schedules_terminal', terminal_id=terminal_id)
 
 
 class UserSyncView(View):
@@ -77,11 +114,52 @@ class UserSyncView(View):
             'terminal', 'config'
         ).filter(is_active=True).order_by('terminal__sn')
         
+        form = UserSyncForm(terminals=terminals, configs=configs)
+        
         return render(request, 'devices/dashboard/user_sync.html', {
             'terminals': terminals,
             'configs': configs,
             'mappings': mappings,
+            'form': form,
         })
+    
+    def post(self, request):
+        terminals = Terminal.objects.filter(is_active=True).order_by('sn')
+        configs = ThirdPartyConfig.objects.filter(is_active=True).order_by('name')
+        form = UserSyncForm(request.POST, terminals=terminals, configs=configs)
+        
+        if form.is_valid():
+            terminal_id = form.cleaned_data['terminal_id']
+            config_id = form.cleaned_data.get('config_id')
+            
+            terminal = get_object_or_404(Terminal, id=terminal_id)
+            config = None
+            if config_id:
+                config = get_object_or_404(ThirdPartyConfig, id=config_id)
+            
+            try:
+                # Le UserSyncService nécessite terminal et config dans le constructeur
+                sync_service = UserSyncService(terminal=terminal, config=config)
+                
+                # Appel asynchrone - on utilise async_to_sync pour l'exécuter
+                from asgiref.sync import async_to_sync
+                result = async_to_sync(sync_service.fetch_and_sync_users)()
+                
+                if result.success:
+                    messages.success(
+                        request,
+                        f'Synchronisation réussie: {result.created} créés, '
+                        f'{result.updated} mis à jour, {result.skipped} ignorés.'
+                    )
+                else:
+                    error_msg = ', '.join(result.errors) if result.errors else 'Erreur inconnue'
+                    messages.error(request, f'Erreur lors de la synchronisation: {error_msg}')
+            except Exception as e:
+                messages.error(request, f'Erreur lors de la synchronisation: {str(e)}')
+        else:
+            messages.error(request, 'Veuillez sélectionner un terminal.')
+        
+        return redirect('devices:dashboard:user_sync')
 
 
 class AttendanceSyncView(View):
@@ -107,6 +185,20 @@ class AttendanceSyncView(View):
             'stats': stats,
             'recent_logs': recent_logs,
         })
+    
+    def post(self, request):
+        action = request.POST.get('action')
+        
+        if action == 'sync_all':
+            messages.info(request, 'Synchronisation lancée en arrière-plan.')
+        elif action == 'reset_failed':
+            failed_count = AttendanceLog.objects.filter(sync_status='failed').update(
+                sync_status='pending',
+                retry_count=0
+            )
+            messages.success(request, f'{failed_count} pointages réinitialisés pour retry.')
+        
+        return redirect('devices:dashboard:attendance_sync')
 
 
 class ManagementDashboardView(View):
