@@ -80,12 +80,25 @@ class Terminal(models.Model):
 
 
 class BiometricUser(models.Model):
-    """Utilisateur biométrique enregistré sur un terminal"""
+    """Utilisateur biométrique enregistré sur un terminal
+    
+    Chaque utilisateur est lié à un seul terminal et possède:
+    - enrollid: ID interne utilisé par le terminal (auto-généré ou manuel)
+    - external_id: ID provenant du système source externe (pour éviter les doublons)
+    """
     
     ADMIN_CHOICES = [
         (0, 'Utilisateur normal'),
         (1, 'Administrateur'),
         (2, 'Super utilisateur'),
+    ]
+    
+    SYNC_STATUS_CHOICES = [
+        ('local', 'Créé localement'),
+        ('synced', 'Synchronisé depuis service tiers'),
+        ('pending_sync', 'En attente de synchronisation vers terminal'),
+        ('synced_to_terminal', 'Synchronisé vers terminal'),
+        ('error', 'Erreur de synchronisation'),
     ]
     
     terminal = models.ForeignKey(
@@ -94,15 +107,27 @@ class BiometricUser(models.Model):
         related_name='users',
         verbose_name="Terminal"
     )
+    
     enrollid = models.IntegerField(
         db_index=True,
-        verbose_name="ID d'enrôlement"
+        verbose_name="ID d'enrôlement",
+        help_text="ID interne utilisé par le terminal biométrique"
     )
+    
+    external_id = models.CharField(
+        max_length=100,
+        blank=True,
+        db_index=True,
+        verbose_name="ID externe",
+        help_text="ID utilisateur provenant du système source (RH, ERP, etc.)"
+    )
+    
     name = models.CharField(
         max_length=100,
         blank=True,
-        verbose_name="Nom"
+        verbose_name="Nom complet"
     )
+    
     admin = models.IntegerField(
         choices=ADMIN_CHOICES,
         default=0,
@@ -130,6 +155,37 @@ class BiometricUser(models.Model):
         verbose_name="Date de fin validité"
     )
     
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Métadonnées",
+        help_text="Données supplémentaires provenant du service tiers"
+    )
+    
+    source_config = models.ForeignKey(
+        'ThirdPartyConfig',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='users',
+        verbose_name="Source de synchronisation",
+        help_text="Configuration du service tiers d'où provient l'utilisateur"
+    )
+    
+    sync_status = models.CharField(
+        max_length=20,
+        choices=SYNC_STATUS_CHOICES,
+        default='local',
+        db_index=True,
+        verbose_name="Statut de synchronisation"
+    )
+    
+    last_synced_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Dernière synchronisation"
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -137,11 +193,38 @@ class BiometricUser(models.Model):
         db_table = 'tm20_biometric_users'
         verbose_name = "Utilisateur biométrique"
         verbose_name_plural = "Utilisateurs biométriques"
-        unique_together = ['terminal', 'enrollid']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['terminal', 'enrollid'],
+                name='unique_terminal_enrollid'
+            ),
+            models.UniqueConstraint(
+                fields=['terminal', 'external_id'],
+                condition=models.Q(external_id__gt=''),
+                name='unique_terminal_external_id'
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['terminal', 'external_id']),
+            models.Index(fields=['terminal', 'sync_status']),
+        ]
         ordering = ['enrollid']
     
     def __str__(self):
         return f"{self.name or f'User#{self.enrollid}'} ({self.terminal.sn})"
+    
+    @classmethod
+    def get_next_enrollid(cls, terminal):
+        """Génère le prochain enrollid disponible pour un terminal"""
+        last_user = cls.objects.filter(terminal=terminal).order_by('-enrollid').first()
+        return (last_user.enrollid + 1) if last_user else 1
+    
+    def mark_synced_to_terminal(self):
+        """Marque l'utilisateur comme synchronisé vers le terminal"""
+        from django.utils import timezone
+        self.sync_status = 'synced_to_terminal'
+        self.last_synced_at = timezone.now()
+        self.save(update_fields=['sync_status', 'last_synced_at', 'updated_at'])
 
 
 class BiometricCredential(models.Model):
@@ -251,6 +334,12 @@ class AttendanceLog(models.Model):
         (4, 'F4'),
     ]
     
+    SYNC_STATUS_CHOICES = [
+        ('pending', 'En attente'),
+        ('sent', 'Envoyé'),
+        ('failed', 'Échec'),
+    ]
+    
     terminal = models.ForeignKey(
         Terminal,
         on_delete=models.CASCADE,
@@ -321,6 +410,27 @@ class AttendanceLog(models.Model):
     access_granted = models.BooleanField(
         default=True,
         verbose_name="Accès accordé"
+    )
+    
+    sync_status = models.CharField(
+        max_length=20,
+        choices=SYNC_STATUS_CHOICES,
+        default='pending',
+        db_index=True,
+        verbose_name="Statut de synchronisation"
+    )
+    sync_attempts = models.IntegerField(
+        default=0,
+        verbose_name="Tentatives de synchronisation"
+    )
+    synced_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Date de synchronisation"
+    )
+    sync_error = models.TextField(
+        blank=True,
+        verbose_name="Erreur de synchronisation"
     )
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -396,3 +506,253 @@ class CommandQueue(models.Model):
     
     def __str__(self):
         return f"{self.command} -> {self.terminal.sn} ({self.status})"
+
+
+class ThirdPartyConfig(models.Model):
+    """Configuration pour intégration avec service tiers"""
+    
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        verbose_name="Nom de la configuration"
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name="Description"
+    )
+    
+    base_url = models.URLField(
+        verbose_name="URL de base de l'API"
+    )
+    
+    users_endpoint = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Endpoint pour récupérer les utilisateurs",
+        help_text="Ex: /api/users"
+    )
+    attendance_endpoint = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Endpoint pour envoyer les pointages",
+        help_text="Ex: /api/attendance"
+    )
+    
+    auth_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('none', 'Aucune'),
+            ('bearer', 'Bearer Token'),
+            ('api_key', 'API Key'),
+            ('basic', 'Basic Auth'),
+        ],
+        default='bearer',
+        verbose_name="Type d'authentification"
+    )
+    auth_token = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name="Token/Clé d'authentification"
+    )
+    auth_header_name = models.CharField(
+        max_length=100,
+        default='Authorization',
+        verbose_name="Nom du header d'authentification"
+    )
+    
+    extra_headers = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Headers supplémentaires",
+        help_text="Format JSON: {\"key\": \"value\"}"
+    )
+    
+    sync_interval_minutes = models.IntegerField(
+        default=15,
+        verbose_name="Intervalle de synchronisation (minutes)",
+        help_text="Intervalle pour l'envoi automatique des pointages"
+    )
+    
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Actif"
+    )
+    
+    timeout_seconds = models.IntegerField(
+        default=30,
+        verbose_name="Timeout (secondes)"
+    )
+    
+    retry_attempts = models.IntegerField(
+        default=3,
+        verbose_name="Nombre de tentatives en cas d'échec"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'tm20_third_party_configs'
+        verbose_name = "Configuration service tiers"
+        verbose_name_plural = "Configurations services tiers"
+        ordering = ['name']
+    
+    def __str__(self):
+        return f"{self.name} ({'Actif' if self.is_active else 'Inactif'})"
+
+
+class TerminalSchedule(models.Model):
+    """Horaires de travail pour un terminal"""
+    
+    WEEKDAY_CHOICES = [
+        (0, 'Lundi'),
+        (1, 'Mardi'),
+        (2, 'Mercredi'),
+        (3, 'Jeudi'),
+        (4, 'Vendredi'),
+        (5, 'Samedi'),
+        (6, 'Dimanche'),
+    ]
+    
+    terminal = models.ForeignKey(
+        Terminal,
+        on_delete=models.CASCADE,
+        related_name='schedules',
+        verbose_name="Terminal"
+    )
+    
+    name = models.CharField(
+        max_length=100,
+        verbose_name="Nom de l'horaire",
+        help_text="Ex: Horaire standard, Horaire été"
+    )
+    
+    weekday = models.IntegerField(
+        choices=WEEKDAY_CHOICES,
+        verbose_name="Jour de la semaine"
+    )
+    
+    check_in_time = models.TimeField(
+        verbose_name="Heure d'arrivée"
+    )
+    break_start_time = models.TimeField(
+        null=True,
+        blank=True,
+        verbose_name="Début de pause"
+    )
+    break_end_time = models.TimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fin de pause"
+    )
+    check_out_time = models.TimeField(
+        verbose_name="Heure de sortie"
+    )
+    
+    tolerance_minutes = models.IntegerField(
+        default=15,
+        verbose_name="Tolérance (minutes)",
+        help_text="Tolérance de retard acceptable"
+    )
+    
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Actif"
+    )
+    
+    effective_from = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Effectif à partir du"
+    )
+    effective_until = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Effectif jusqu'au"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'tm20_terminal_schedules'
+        verbose_name = "Horaire de terminal"
+        verbose_name_plural = "Horaires de terminaux"
+        ordering = ['terminal', 'weekday', 'check_in_time']
+        indexes = [
+            models.Index(fields=['terminal', 'weekday', 'is_active']),
+        ]
+    
+    def __str__(self):
+        return f"{self.terminal.sn} - {self.get_weekday_display()} ({self.check_in_time}-{self.check_out_time})"
+    
+    def is_currently_effective(self):
+        """Vérifie si l'horaire est actuellement effectif"""
+        from datetime import date
+        today = date.today()
+        
+        if not self.is_active:
+            return False
+        
+        if self.effective_from and today < self.effective_from:
+            return False
+        
+        if self.effective_until and today > self.effective_until:
+            return False
+        
+        return True
+
+
+class TerminalThirdPartyMapping(models.Model):
+    """Mapping entre terminal et configuration service tiers"""
+    
+    terminal = models.ForeignKey(
+        Terminal,
+        on_delete=models.CASCADE,
+        related_name='third_party_mappings',
+        verbose_name="Terminal"
+    )
+    config = models.ForeignKey(
+        ThirdPartyConfig,
+        on_delete=models.CASCADE,
+        related_name='terminal_mappings',
+        verbose_name="Configuration"
+    )
+    
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Actif"
+    )
+    
+    sync_users = models.BooleanField(
+        default=True,
+        verbose_name="Synchroniser les utilisateurs"
+    )
+    sync_attendance = models.BooleanField(
+        default=True,
+        verbose_name="Synchroniser les pointages"
+    )
+    
+    last_user_sync = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Dernière synchro utilisateurs"
+    )
+    last_attendance_sync = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Dernière synchro pointages"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'tm20_terminal_third_party_mappings'
+        verbose_name = "Mapping Terminal-Service tiers"
+        verbose_name_plural = "Mappings Terminal-Services tiers"
+        unique_together = ['terminal', 'config']
+        ordering = ['terminal', 'config']
+    
+    def __str__(self):
+        return f"{self.terminal.sn} <-> {self.config.name}"

@@ -24,3 +24,10 @@ structlog>=23.2.0
 gunicorn>=21.2.0
 uvicorn[standard]>=0.27.0
 whitenoise>=6.6.0
+
+# Celery & Tasks
+celery>=5.3.0
+django-celery-beat>=2.5.0
+
+# HTTP Client
+httpx>=0.26.0

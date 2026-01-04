@@ -11,7 +11,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-secret-key-change-in-production
 
 DEBUG = os.getenv('DEBUG', '0') == '1'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,192.168.107.4,django-http.tm20-server.orb.local,*.orb.local').split(',')
 
 INSTALLED_APPS = [
     'daphne',
@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'channels',
     'corsheaders',
     'devices',
+    'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -215,3 +216,13 @@ LOGGING = {
 (BASE_DIR / 'logs').mkdir(exist_ok=True)
 
 CORS_ALLOW_ALL_ORIGINS = DEBUG
+
+# Celery Configuration
+CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
