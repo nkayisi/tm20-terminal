@@ -124,40 +124,81 @@ class UserSyncView(View):
         })
     
     def post(self, request):
+        from asgiref.sync import async_to_sync
+        from ..services.user_sync_service import UserSyncService, UserSyncManager
+        
         terminals = Terminal.objects.filter(is_active=True).order_by('sn')
         configs = ThirdPartyConfig.objects.filter(is_active=True).order_by('name')
-        form = UserSyncForm(request.POST, terminals=terminals, configs=configs)
         
-        if form.is_valid():
-            terminal_id = form.cleaned_data['terminal_id']
-            config_id = form.cleaned_data.get('config_id')
+        action = request.POST.get('action', 'sync_from_service')
+        
+        if action == 'push_to_terminal':
+            terminal_id = request.POST.get('terminal_id')
             
-            terminal = get_object_or_404(Terminal, id=terminal_id)
-            config = None
-            if config_id:
-                config = get_object_or_404(ThirdPartyConfig, id=config_id)
-            
+            if terminal_id:
+                try:
+                    result = async_to_sync(UserSyncManager.push_terminal_users)(int(terminal_id))
+                    
+                    if result.success:
+                        messages.success(
+                            request,
+                            f'Envoi réussi: {result.created} utilisateurs envoyés vers le terminal.'
+                        )
+                    else:
+                        error_msg = ', '.join(result.errors) if result.errors else 'Erreur inconnue'
+                        messages.error(request, f'Erreur lors de l\'envoi: {error_msg}')
+                except Exception as e:
+                    messages.error(request, f'Erreur lors de l\'envoi vers le terminal: {str(e)}')
+            else:
+                messages.error(request, 'Veuillez sélectionner un terminal.')
+        
+        elif action == 'push_all_to_terminals':
             try:
-                # Le UserSyncService nécessite terminal et config dans le constructeur
-                sync_service = UserSyncService(terminal=terminal, config=config)
+                results = async_to_sync(UserSyncManager.push_all_users_to_terminals)()
                 
-                # Appel asynchrone - on utilise async_to_sync pour l'exécuter
-                from asgiref.sync import async_to_sync
-                result = async_to_sync(sync_service.fetch_and_sync_users)()
+                total_sent = sum(r.created for r in results.values())
+                total_failed = sum(r.skipped for r in results.values())
                 
-                if result.success:
+                if total_sent > 0:
                     messages.success(
                         request,
-                        f'Synchronisation réussie: {result.created} créés, '
-                        f'{result.updated} mis à jour, {result.skipped} ignorés.'
+                        f'Synchronisation complète: {total_sent} utilisateurs envoyés vers {len(results)} terminaux. '
+                        f'{total_failed} échecs.'
                     )
                 else:
-                    error_msg = ', '.join(result.errors) if result.errors else 'Erreur inconnue'
-                    messages.error(request, f'Erreur lors de la synchronisation: {error_msg}')
+                    messages.info(request, 'Aucun utilisateur en attente de synchronisation.')
             except Exception as e:
-                messages.error(request, f'Erreur lors de la synchronisation: {str(e)}')
+                messages.error(request, f'Erreur lors de la synchronisation globale: {str(e)}')
+        
         else:
-            messages.error(request, 'Veuillez sélectionner un terminal.')
+            form = UserSyncForm(request.POST, terminals=terminals, configs=configs)
+            
+            if form.is_valid():
+                terminal_id = form.cleaned_data['terminal_id']
+                config_id = form.cleaned_data.get('config_id')
+                
+                terminal = get_object_or_404(Terminal, id=terminal_id)
+                config = None
+                if config_id:
+                    config = get_object_or_404(ThirdPartyConfig, id=config_id)
+                
+                try:
+                    sync_service = UserSyncService(terminal=terminal, config=config)
+                    result = async_to_sync(sync_service.fetch_and_sync_users)()
+                    
+                    if result.success:
+                        messages.success(
+                            request,
+                            f'Synchronisation réussie: {result.created} créés, '
+                            f'{result.updated} mis à jour, {result.skipped} ignorés.'
+                        )
+                    else:
+                        error_msg = ', '.join(result.errors) if result.errors else 'Erreur inconnue'
+                        messages.error(request, f'Erreur lors de la synchronisation: {error_msg}')
+                except Exception as e:
+                    messages.error(request, f'Erreur lors de la synchronisation: {str(e)}')
+            else:
+                messages.error(request, 'Veuillez sélectionner un terminal.')
         
         return redirect('devices:dashboard:user_sync')
 

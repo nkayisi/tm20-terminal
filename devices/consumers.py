@@ -112,6 +112,14 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
             except asyncio.CancelledError:
                 pass
         
+        # Quitter le groupe Channels
+        if self.sn:
+            await self.channel_layer.group_discard(
+                f'terminal_{self.sn}',
+                self.channel_name
+            )
+            logger.info(f"[{self.sn}] Retiré du groupe Channels terminal_{self.sn}")
+        
         # Désenregistrer du Device Manager
         if self.sn:
             await self._device_manager.unregister(self.sn)
@@ -192,6 +200,13 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
             self.sn = result.data.get('sn')
             self.terminal = result.data.get('terminal')
             self.registered = True
+            
+            # Rejoindre le groupe Channels du terminal
+            await self.channel_layer.group_add(
+                f'terminal_{self.sn}',
+                self.channel_name
+            )
+            logger.info(f"[{self.sn}] Ajouté au groupe Channels terminal_{self.sn}")
             
             # Enregistrer dans le Device Manager
             await self._device_manager.register(
@@ -274,11 +289,46 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
     
     # === API publique pour envoi de commandes ===
     
-    async def send_command(self, command: dict) -> bool:
-        """Envoie une commande au terminal"""
+    async def send_command(self, event: dict):
+        """
+        Handler pour les messages Channels Layer.
+        Appelé quand un message avec type='send_command' est envoyé au groupe.
+        
+        Args:
+            event: Dict contenant 'command' (la commande à envoyer)
+        """
+        logger.info(f"[{self.sn}] send_command appelé avec event: {event}")
+        
+        command = event.get('command')
+        if not command:
+            logger.warning(f"[{self.sn}] send_command appelé sans commande")
+            return
+        
         try:
+            # Extraire et stocker les métadonnées avant envoi
+            # Ces métadonnées seront utilisées lors de la réponse du terminal
+            user_ids = command.pop('_user_ids', None)
+            terminal_id = command.pop('_terminal_id', None)
+            
+            if user_ids and command.get('cmd') == 'setusername':
+                # Stocker dans le cache Redis pour retrouver lors de la réponse
+                from django.core.cache import cache
+                cache_key = f'setusername_pending:{self.sn}'
+                cache.set(cache_key, {
+                    'user_ids': user_ids,
+                    'terminal_id': terminal_id,
+                    'enrollids': [u['enrollid'] for u in command.get('record', [])]
+                }, timeout=60)  # 60 secondes
+                logger.info(
+                    f"[{self.sn}] Métadonnées stockées en cache: {len(user_ids)} utilisateurs"
+                )
+            
+            logger.info(
+                f"[{self.sn}] Envoi commande via Channels: "
+                f"cmd={command.get('cmd')}, enrollid={command.get('enrollid')}, "
+                f"name={command.get('name')}"
+            )
             await self._send_json(command)
-            return True
+            logger.info(f"[{self.sn}] Commande envoyée avec succès au terminal")
         except Exception as e:
-            logger.error(f"Error sending command: {e}")
-            return False
+            logger.error(f"[{self.sn}] Erreur envoi commande via Channels: {e}", exc_info=True)

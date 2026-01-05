@@ -50,8 +50,8 @@ class TerminalAdmin(admin.ModelAdmin):
 
 @admin.register(BiometricUser)
 class BiometricUserAdmin(admin.ModelAdmin):
-    list_display = ['enrollid', 'name', 'terminal', 'admin', 'is_enabled', 'created_at']
-    list_filter = ['terminal', 'admin', 'is_enabled']
+    list_display = ['enrollid', 'name', 'terminal', 'admin', 'is_enabled', 'sync_status', 'created_at']
+    list_filter = ['terminal', 'admin', 'is_enabled', 'sync_status']
     search_fields = ['enrollid', 'name', 'terminal__sn']
     raw_id_fields = ['terminal']
     
