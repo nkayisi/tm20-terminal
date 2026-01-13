@@ -158,65 +158,45 @@ TM20_SETTINGS = {
     'REQUIRE_WHITELIST': os.getenv('TM20_REQUIRE_WHITELIST', '0') == '1',
 }
 
+LOG_DIR = Path(os.environ.get("LOG_DIR", "/tmp/logs"))
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
 # Logging Configuration
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
+    "version": 1,
+    "disable_existing_loggers": False,
+
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
         },
-        'tm20': {
-            'format': '[{asctime}] [{levelname}] [TM20] {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
-        },
-        'tm20_file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'tm20.log',
-            'maxBytes': 10 * 1024 * 1024,
-            'backupCount': 5,
-            'formatter': 'tm20',
-        },
-    },
-    'loggers': {
-    'django': {
-        'handlers': ['console'],
-        'level': 'INFO',
     },
 
-    # 🔥 CRUCIAL POUR WEBSOCKET
-    'django.channels': {
-        'handlers': ['console'],
-        'level': 'DEBUG',
-        'propagate': False,
-    },
-    'channels.server': {
-        'handlers': ['console'],
-        'level': 'DEBUG',
-        'propagate': False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+        "tm20_file": {
+            "level": "INFO",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": str(LOG_DIR / "tm20.log"),
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 3,
+            "formatter": "verbose",
+        },
     },
 
-    # Ton logger TM20
-    'devices': {
-        'handlers': ['console', 'tm20_file'],
-        'level': 'DEBUG',
-        'propagate': False,
+    "root": {
+        "handlers": ["console", "tm20_file"],
+        "level": "INFO",
     },
-},
 }
+
 
 # Create logs directory
 # (BASE_DIR / 'logs').mkdir(exist_ok=True)
-
-LOG_DIR = Path(os.environ.get("LOG_DIR", "/tmp/logs"))
-LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 
