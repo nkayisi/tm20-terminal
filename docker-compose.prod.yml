@@ -24,6 +24,8 @@ services:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - logs_volume:/app/logs
+    networks:
+      - tm20_network
     depends_on:
       - postgres
       - redis
@@ -50,6 +52,8 @@ services:
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
     volumes:
       - logs_volume:/app/logs
+    networks:
+      - tm20_network
     depends_on:
       - postgres
       - redis
@@ -74,6 +78,8 @@ services:
       C_FORCE_ROOT: "true"
     volumes:
       - logs_volume:/app/logs
+    networks:
+      - tm20_network
     depends_on:
       - postgres
       - redis
@@ -97,6 +103,8 @@ services:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
     volumes:
       - logs_volume:/app/logs
+    networks:
+      - tm20_network
     depends_on:
       - postgres
       - redis
@@ -114,6 +122,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tm20_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - tm20_network
     restart: unless-stopped
 
   # ==========================
@@ -124,6 +134,8 @@ services:
     container_name: tm20_redis
     volumes:
       - redis_data:/data
+    networks:
+      - tm20_network
     restart: unless-stopped
 
 # ==========================
