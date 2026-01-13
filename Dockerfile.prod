@@ -1,0 +1,96 @@
+# ============================================
+# Dockerfile de Production - TM20 Server
+# Optimisé pour Dokploy/Hostinger
+# ============================================
+
+# Stage 1: Builder
+FROM python:3.11-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+# Installation des dépendances système pour la compilation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Création du virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Installation des dépendances Python
+COPY requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir gunicorn gevent
+
+
+# ============================================
+# Stage 2: Runtime de Production
+# ============================================
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH" \
+    DJANGO_SETTINGS_MODULE=config.settings
+
+WORKDIR /app
+
+# Installation des dépendances runtime uniquement
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copie du virtual environment depuis le builder
+COPY --from=builder /opt/venv /opt/venv
+
+# Copie du code source
+COPY . .
+
+# Collecte des fichiers statiques
+RUN python manage.py collectstatic --noinput
+
+# Création de l'utilisateur non-root
+RUN useradd -m -u 1000 appuser && \
+    mkdir -p /app/logs /app/media /app/staticfiles && \
+    chown -R appuser:appuser /app
+
+# Script d'entrypoint intégré
+RUN echo '#!/bin/bash\n\
+set -e\n\
+echo "🔄 Running migrations..."\n\
+python manage.py migrate --noinput || true\n\
+echo "✅ Migrations completed"\n\
+echo "🚀 Starting application..."\n\
+exec "$@"' > /app/docker-entrypoint.sh && \
+    chmod +x /app/docker-entrypoint.sh && \
+    chown appuser:appuser /app/docker-entrypoint.sh
+
+USER appuser
+
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+
+EXPOSE 8000
+
+CMD ["gunicorn", "config.wsgi:application", \
+     "--bind", "0.0.0.0:8000", \
+     "--workers", "4", \
+     "--worker-class", "sync", \
+     "--worker-connections", "1000", \
+     "--max-requests", "1000", \
+     "--max-requests-jitter", "100", \
+     "--timeout", "30", \
+     "--graceful-timeout", "30", \
+     "--keep-alive", "5", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-", \
+     "--log-level", "info"]

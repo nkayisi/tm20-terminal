@@ -1,29 +1,29 @@
 version: "3.9"
 
 services:
-
   # ==========================
   # Django HTTP (Admin + API)
   # ==========================
   django-http:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
     container_name: tm20_django_http
-    command: >
-      gunicorn config.wsgi:application
-      --bind 0.0.0.0:8000
-      --workers 3
-      --timeout 120
-      --log-level info
     ports:
       - "8000:8000"
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
       DEBUG: "0"
-      LOG_DIR: /tmp/logs
-      DATABASE_URL: postgres://tm20_user:tm20_password@postgres:5432/tm20_db
-      REDIS_URL: redis://redis:6379/0
+      LOG_DIR: /app/logs
+      DATABASE_URL: ${DATABASE_URL:-postgres://tm20_user:tm20_password@postgres:5432/tm20_db}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
-      ALLOWED_HOSTS: "*"
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost,http://127.0.0.1}
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - logs_volume:/app/logs
     depends_on:
       - postgres
       - redis
@@ -33,20 +33,23 @@ services:
   # Django ASGI (WebSocket)
   # ==========================
   django-ws:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
     container_name: tm20_django_ws
-    command: >
-      daphne -b 0.0.0.0 -p 7788 config.asgi:application
+    command: daphne -b 0.0.0.0 -p 7788 config.asgi:application
     ports:
       - "7788:7788"
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
       DEBUG: "0"
-      LOG_DIR: /tmp/logs
-      DATABASE_URL: postgres://tm20_user:tm20_password@postgres:5432/tm20_db
-      REDIS_URL: redis://redis:6379/0
+      LOG_DIR: /app/logs
+      DATABASE_URL: ${DATABASE_URL:-postgres://tm20_user:tm20_password@postgres:5432/tm20_db}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
-      ALLOWED_HOSTS: "*"
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+    volumes:
+      - logs_volume:/app/logs
     depends_on:
       - postgres
       - redis
@@ -56,64 +59,87 @@ services:
   # Celery Worker
   # ==========================
   celery-worker:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
     container_name: tm20_celery_worker
-    command: celery -A config worker -l info
+    command: celery -A config worker -l info -Q sync,maintenance --concurrency=4
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
       DEBUG: "0"
-      LOG_DIR: /tmp/logs
-      DATABASE_URL: postgres://tm20_user:tm20_password@postgres:5432/tm20_db
-      REDIS_URL: redis://redis:6379/0
+      LOG_DIR: /app/logs
+      DATABASE_URL: ${DATABASE_URL:-postgres://tm20_user:tm20_password@postgres:5432/tm20_db}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      C_FORCE_ROOT: "true"
+    volumes:
+      - logs_volume:/app/logs
     depends_on:
       - postgres
       - redis
     restart: unless-stopped
 
   # ==========================
-  # Celery Beat
+  # Celery Beat (Scheduler)
   # ==========================
   celery-beat:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
     container_name: tm20_celery_beat
     command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
       DEBUG: "0"
-      LOG_DIR: /tmp/logs
-      DATABASE_URL: postgres://tm20_user:tm20_password@postgres:5432/tm20_db
-      REDIS_URL: redis://redis:6379/0
+      LOG_DIR: /app/logs
+      DATABASE_URL: ${DATABASE_URL:-postgres://tm20_user:tm20_password@postgres:5432/tm20_db}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+    volumes:
+      - logs_volume:/app/logs
     depends_on:
       - postgres
       - redis
     restart: unless-stopped
 
   # ==========================
-  # PostgreSQL
+  # PostgreSQL Database
   # ==========================
   postgres:
     image: postgres:15-alpine
     container_name: tm20_postgres
     environment:
-      POSTGRES_DB: tm20_db
-      POSTGRES_USER: tm20_user
-      POSTGRES_PASSWORD: tm20_password
+      POSTGRES_DB: ${POSTGRES_DB:-tm20_db}
+      POSTGRES_USER: ${POSTGRES_USER:-tm20_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tm20_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
   # ==========================
-  # Redis
+  # Redis Cache & Message Broker
   # ==========================
   redis:
     image: redis:7-alpine
     container_name: tm20_redis
+    volumes:
+      - redis_data:/data
     restart: unless-stopped
 
 # ==========================
-# Volumes persistants
+# Volumes Persistants
 # ==========================
 volumes:
   postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
+  logs_volume:
+
+
+# ==========================
+# Networks
+# ==========================
+networks:
+  tm20_network:
+    external: true
