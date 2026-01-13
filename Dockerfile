@@ -68,4 +68,5 @@ ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
 EXPOSE 7788
 
-CMD ["gunicorn", "config.asgi:application", "--config", "gunicorn.conf.py"]
+#CMD ["gunicorn", "config.asgi:application", "--config", "gunicorn.conf.py"]
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:7788"]
