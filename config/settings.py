@@ -213,7 +213,10 @@ LOGGING = {
 }
 
 # Create logs directory
-(BASE_DIR / 'logs').mkdir(exist_ok=True)
+# (BASE_DIR / 'logs').mkdir(exist_ok=True)
+
+LOG_DIR = Path(os.environ.get("LOG_DIR", "/tmp/logs"))
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 

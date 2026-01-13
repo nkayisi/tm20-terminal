@@ -1,0 +1,119 @@
+version: "3.9"
+
+services:
+
+  # ==========================
+  # Django HTTP (Admin + API)
+  # ==========================
+  django-http:
+    build: .
+    container_name: tm20_django_http
+    command: >
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 3
+      --timeout 120
+      --log-level info
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      DEBUG: "0"
+      LOG_DIR: /tmp/logs
+      DATABASE_URL: postgres://tm20_user:tm20_password@postgres:5432/tm20_db
+      REDIS_URL: redis://redis:6379/0
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      ALLOWED_HOSTS: "*"
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # ==========================
+  # Django ASGI (WebSocket)
+  # ==========================
+  django-ws:
+    build: .
+    container_name: tm20_django_ws
+    command: >
+      daphne -b 0.0.0.0 -p 7788 config.asgi:application
+    ports:
+      - "7788:7788"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      DEBUG: "0"
+      LOG_DIR: /tmp/logs
+      DATABASE_URL: postgres://tm20_user:tm20_password@postgres:5432/tm20_db
+      REDIS_URL: redis://redis:6379/0
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      ALLOWED_HOSTS: "*"
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # ==========================
+  # Celery Worker
+  # ==========================
+  celery-worker:
+    build: .
+    container_name: tm20_celery_worker
+    command: celery -A config worker -l info
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      DEBUG: "0"
+      LOG_DIR: /tmp/logs
+      DATABASE_URL: postgres://tm20_user:tm20_password@postgres:5432/tm20_db
+      REDIS_URL: redis://redis:6379/0
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # ==========================
+  # Celery Beat
+  # ==========================
+  celery-beat:
+    build: .
+    container_name: tm20_celery_beat
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      DEBUG: "0"
+      LOG_DIR: /tmp/logs
+      DATABASE_URL: postgres://tm20_user:tm20_password@postgres:5432/tm20_db
+      REDIS_URL: redis://redis:6379/0
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # ==========================
+  # PostgreSQL
+  # ==========================
+  postgres:
+    image: postgres:15-alpine
+    container_name: tm20_postgres
+    environment:
+      POSTGRES_DB: tm20_db
+      POSTGRES_USER: tm20_user
+      POSTGRES_PASSWORD: tm20_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # ==========================
+  # Redis
+  # ==========================
+  redis:
+    image: redis:7-alpine
+    container_name: tm20_redis
+    restart: unless-stopped
+
+# ==========================
+# Volumes persistants
+# ==========================
+volumes:
+  postgres_data:
