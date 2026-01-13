@@ -50,8 +50,8 @@ class TerminalAdmin(admin.ModelAdmin):
 
 @admin.register(BiometricUser)
 class BiometricUserAdmin(admin.ModelAdmin):
-    list_display = ['enrollid', 'name', 'terminal', 'admin', 'is_enabled', 'created_at']
-    list_filter = ['terminal', 'admin', 'is_enabled']
+    list_display = ['enrollid', 'name', 'terminal', 'admin', 'is_enabled', 'sync_status', 'created_at']
+    list_filter = ['terminal', 'admin', 'is_enabled', 'sync_status']
     search_fields = ['enrollid', 'name', 'terminal__sn']
     raw_id_fields = ['terminal']
     
@@ -84,16 +84,24 @@ class BiometricCredentialAdmin(admin.ModelAdmin):
 class AttendanceLogAdmin(admin.ModelAdmin):
     list_display = [
         'terminal', 'enrollid', 'get_user_name', 'time',
-        'mode', 'inout', 'access_granted'
+        'mode', 'get_inout_status', 'access_granted', 'sync_status'
     ]
-    list_filter = ['terminal', 'mode', 'inout', 'access_granted', 'time']
+    list_filter = ['terminal', 'mode', 'inout', 'access_granted', 'sync_status', 'time']
     search_fields = ['enrollid', 'user__name', 'terminal__sn']
     raw_id_fields = ['terminal', 'user']
     date_hierarchy = 'time'
+    readonly_fields = ['created_at', 'synced_at']
     
     def get_user_name(self, obj):
         return obj.user.name if obj.user else '-'
     get_user_name.short_description = 'Utilisateur'
+    
+    def get_inout_status(self, obj):
+        """Affiche le statut entrée/sortie avec icône et couleur"""
+        if obj.is_entry:
+            return "🟢 Entrée"
+        return "🔴 Sortie"
+    get_inout_status.short_description = 'Entrée/Sortie'
 
 
 @admin.register(CommandQueue)

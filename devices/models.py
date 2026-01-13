@@ -447,6 +447,72 @@ class AttendanceLog(models.Model):
     
     def __str__(self):
         return f"{self.enrollid} - {self.time} ({self.terminal.sn})"
+    
+    @property
+    def is_entry(self):
+        """Vérifie si c'est une entrée"""
+        return self.inout == 0
+    
+    @property
+    def is_exit(self):
+        """Vérifie si c'est une sortie"""
+        return self.inout == 1
+    
+    @classmethod
+    def get_last_attendance(cls, enrollid, terminal, before_time=None):
+        """
+        Récupère le dernier pointage d'un utilisateur sur un terminal.
+        
+        Args:
+            enrollid: ID d'enrôlement de l'utilisateur
+            terminal: Instance du terminal
+            before_time: Récupérer le pointage avant cette date (optionnel)
+        
+        Returns:
+            AttendanceLog ou None
+        """
+        queryset = cls.objects.filter(
+            enrollid=enrollid,
+            terminal=terminal
+        )
+        
+        if before_time:
+            queryset = queryset.filter(time__lt=before_time)
+        
+        return queryset.order_by('-time').first()
+    
+    @classmethod
+    def determine_inout_status(cls, enrollid, terminal, current_time):
+        """
+        Détermine automatiquement si le pointage doit être une entrée ou sortie.
+        
+        Logique:
+        - Si aucun pointage précédent: ENTRÉE (0)
+        - Si dernier pointage = ENTRÉE: SORTIE (1)
+        - Si dernier pointage = SORTIE: ENTRÉE (0)
+        
+        Args:
+            enrollid: ID d'enrôlement de l'utilisateur
+            terminal: Instance du terminal
+            current_time: Date/heure du pointage actuel
+        
+        Returns:
+            int: 0 pour entrée, 1 pour sortie
+        """
+        last_attendance = cls.get_last_attendance(enrollid, terminal, current_time)
+        
+        if not last_attendance:
+            # Aucun pointage précédent = première entrée
+            return 0
+        
+        # Alterner entre entrée et sortie
+        return 1 if last_attendance.inout == 0 else 0
+    
+    def get_inout_display_with_icon(self):
+        """Retourne le statut entrée/sortie avec une icône"""
+        if self.is_entry:
+            return "🟢 Entrée"
+        return "🔴 Sortie"
 
 
 class CommandQueue(models.Model):

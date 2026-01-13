@@ -266,6 +266,199 @@ class UserSyncService:
             sync_status='error',
             metadata={'sync_error': error_message, 'error_at': timezone.now().isoformat()}
         )
+    
+    async def push_users_to_terminal(self, user_ids: List[int] = None) -> SyncResult:
+        """
+        Envoie les utilisateurs vers le terminal physique.
+        
+        Args:
+            user_ids: Liste des IDs utilisateurs à envoyer. Si None, envoie tous les utilisateurs pending_sync
+            
+        Returns:
+            SyncResult avec le détail des opérations
+        """
+        self.logger.info(f"Début envoi utilisateurs vers terminal {self.terminal.sn}")
+        
+        try:
+            if user_ids:
+                users = await self._get_users_by_ids(user_ids)
+            else:
+                users = await self.get_users_pending_sync()
+            
+            if not users:
+                return SyncResult(
+                    success=True,
+                    details={'message': 'Aucun utilisateur à synchroniser'}
+                )
+            
+            # Envoyer tous les utilisateurs en une seule commande batch
+            try:
+                success = await self._send_users_batch_to_terminal(users)
+                if success:
+                    sent = len(users)
+                    failed = 0
+                    errors = []
+                else:
+                    sent = 0
+                    failed = len(users)
+                    errors = [f"Échec envoi batch de {len(users)} utilisateurs"]
+            except Exception as e:
+                sent = 0
+                failed = len(users)
+                errors = [f"Erreur envoi batch: {str(e)}"]
+                self.logger.error(f"Erreur envoi batch: {e}")
+            
+            self.logger.info(
+                f"Envoi terminé: {sent} envoyés, {failed} échecs"
+            )
+            
+            return SyncResult(
+                success=failed == 0,
+                created=sent,
+                skipped=failed,
+                errors=errors,
+                details={
+                    'terminal_sn': self.terminal.sn,
+                    'sent': sent,
+                    'failed': failed,
+                    'timestamp': timezone.now().isoformat(),
+                }
+            )
+            
+        except Exception as e:
+            self.logger.exception(f"Erreur lors de l'envoi vers terminal: {e}")
+            return SyncResult(
+                success=False,
+                errors=[str(e)],
+                details={'exception': type(e).__name__}
+            )
+    
+    @sync_to_async
+    def _get_users_by_ids(self, user_ids: List[int]) -> List[BiometricUser]:
+        """Récupère les utilisateurs par leurs IDs"""
+        return list(
+            BiometricUser.objects.filter(
+                id__in=user_ids,
+                terminal=self.terminal
+            ).order_by('enrollid')
+        )
+    
+    async def _send_users_batch_to_terminal(self, users: List[BiometricUser]) -> bool:
+        """
+        Envoie plusieurs utilisateurs vers le terminal en une seule commande batch.
+        Plus efficace et évite de surcharger le terminal.
+        
+        Returns:
+            True si l'envoi a réussi, False sinon
+        """
+        from channels.layers import get_channel_layer
+        from ..protocol.builders import CommandBuilder
+        
+        channel_layer = get_channel_layer()
+        if not channel_layer:
+            self.logger.error("Channel layer non disponible")
+            return False
+        
+        # Préparer la liste des utilisateurs pour la commande batch
+        users_data = [
+            {
+                'enrollid': user.enrollid,
+                'name': user.name or f"User{user.enrollid}",
+            }
+            for user in users
+        ]
+        
+        # Construire la commande setusername batch
+        payload = CommandBuilder.setusername(users=users_data)
+        
+        # Stocker les IDs des utilisateurs pour le handler de réponse
+        # On les met dans le payload pour que le handler puisse les retrouver
+        payload['_user_ids'] = [user.id for user in users]
+        payload['_terminal_id'] = self.terminal.id
+        
+        try:
+            group_name = f'terminal_{self.terminal.sn}'
+            message = {
+                'type': 'send_command',
+                'command': payload
+            }
+            
+            self.logger.info(
+                f"Envoi batch de {len(users)} utilisateurs vers groupe '{group_name}': "
+                f"enrollids={[u.enrollid for u in users]}"
+            )
+            
+            await channel_layer.group_send(group_name, message)
+            
+            self.logger.info(
+                f"Commande setusername batch envoyée pour {len(users)} utilisateurs "
+                f"vers terminal {self.terminal.sn}"
+            )
+            return True
+                
+        except Exception as e:
+            self.logger.error(
+                f"Erreur envoi batch: {e}"
+            )
+            return False
+    
+    async def _send_user_to_terminal(self, user: BiometricUser) -> bool:
+        """
+        Envoie un utilisateur vers le terminal physique via WebSocket.
+        Utilise Channels Layer pour communication inter-conteneurs.
+        
+        IMPORTANT: Cette méthode envoie seulement la commande.
+        Le marquage comme 'synced_to_terminal' doit être fait par le consumer
+        après réception de la confirmation du terminal (ret=setuserinfo).
+        
+        Returns:
+            True si l'envoi a réussi, False sinon
+        """
+        from channels.layers import get_channel_layer
+        from ..protocol.builders import CommandBuilder
+        
+        channel_layer = get_channel_layer()
+        if not channel_layer:
+            self.logger.error("Channel layer non disponible")
+            return False
+        
+        # Construire la commande setusername pour créer l'utilisateur de base
+        # Note: setuserinfo est pour les données biométriques, pas pour créer l'utilisateur
+        payload = CommandBuilder.setusername(
+            users=[{
+                'enrollid': user.enrollid,
+                'name': user.name or f"User{user.enrollid}",
+            }]
+        )
+        
+        try:
+            group_name = f'terminal_{self.terminal.sn}'
+            message = {
+                'type': 'send_command',
+                'command': payload
+            }
+            
+            self.logger.info(
+                f"Envoi vers groupe Channels '{group_name}': "
+                f"cmd={payload.get('cmd')}, enrollid={payload.get('enrollid')}, "
+                f"name={payload.get('name')}"
+            )
+            
+            # Envoyer via Channels Layer au groupe du terminal
+            # Le consumer WebSocket recevra ce message et l'enverra au terminal
+            await channel_layer.group_send(group_name, message)
+            
+            self.logger.info(
+                f"Commande setuserinfo envoyée pour user {user.enrollid} "
+                f"vers terminal {self.terminal.sn} via Channels (groupe: {group_name})"
+            )
+            return True
+                
+        except Exception as e:
+            self.logger.error(
+                f"Erreur envoi setuserinfo pour user {user.enrollid}: {e}"
+            )
+            return False
 
 
 class UserSyncManager:
@@ -347,3 +540,78 @@ class UserSyncManager:
             'synced_to_terminal': users.filter(sync_status='synced_to_terminal').count(),
             'error': users.filter(sync_status='error').count(),
         }
+    
+    @staticmethod
+    async def push_all_users_to_terminals() -> Dict[str, SyncResult]:
+        """
+        Envoie tous les utilisateurs vers leurs terminaux respectifs.
+        
+        Returns:
+            Dict mapping terminal_sn -> SyncResult
+        """
+        results = {}
+        
+        @sync_to_async
+        def get_terminals_with_pending_users():
+            from django.db.models import Q
+            return list(
+                Terminal.objects.filter(
+                    Q(users__sync_status='pending_sync') |
+                    Q(users__sync_status='local')
+                ).distinct()
+            )
+        
+        terminals = await get_terminals_with_pending_users()
+        
+        for terminal in terminals:
+            @sync_to_async
+            def get_config():
+                mapping = TerminalThirdPartyMapping.objects.filter(
+                    terminal=terminal,
+                    is_active=True
+                ).select_related('config').first()
+                return mapping.config if mapping else None
+            
+            config = await get_config()
+            
+            if not config:
+                logger.warning(f"Aucune configuration trouvée pour {terminal.sn}")
+                continue
+            
+            service = UserSyncService(terminal, config)
+            result = await service.push_users_to_terminal()
+            results[terminal.sn] = result
+        
+        return results
+    
+    @staticmethod
+    async def push_terminal_users(terminal_id: int) -> SyncResult:
+        """
+        Envoie tous les utilisateurs d'un terminal vers ce terminal.
+        
+        Args:
+            terminal_id: ID du terminal
+            
+        Returns:
+            SyncResult
+        """
+        @sync_to_async
+        def get_terminal_and_config():
+            terminal = Terminal.objects.get(id=terminal_id)
+            mapping = TerminalThirdPartyMapping.objects.filter(
+                terminal=terminal,
+                is_active=True
+            ).select_related('config').first()
+            config = mapping.config if mapping else None
+            return terminal, config
+        
+        terminal, config = await get_terminal_and_config()
+        
+        if not config:
+            return SyncResult(
+                success=False,
+                errors=["Aucune configuration de service tiers trouvée pour ce terminal"]
+            )
+        
+        service = UserSyncService(terminal, config)
+        return await service.push_users_to_terminal()
