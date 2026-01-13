@@ -231,13 +231,66 @@ class AttendanceSyncView(View):
         action = request.POST.get('action')
         
         if action == 'sync_all':
-            messages.info(request, 'Synchronisation lancée en arrière-plan.')
+            # Déclencher la synchronisation de tous les pointages en attente
+            from asgiref.sync import async_to_sync
+            from ..services.attendance_sync_service import AttendanceSyncManager
+            
+            try:
+                results = async_to_sync(AttendanceSyncManager.sync_all_pending)()
+                
+                total_sent = sum(r.sent for r in results.values())
+                total_failed = sum(r.failed for r in results.values())
+                
+                if total_failed == 0:
+                    messages.success(
+                        request,
+                        f'Synchronisation réussie : {total_sent} pointages envoyés.'
+                    )
+                else:
+                    messages.warning(
+                        request,
+                        f'Synchronisation partielle : {total_sent} envoyés, {total_failed} échoués.'
+                    )
+            except Exception as e:
+                messages.error(request, f'Erreur lors de la synchronisation : {str(e)}')
+        
+        elif action == 'sync_config':
+            # Synchroniser les pointages pour une configuration spécifique
+            from asgiref.sync import async_to_sync
+            from ..services.attendance_sync_service import AttendanceSyncManager
+            
+            config_id = request.POST.get('config_id')
+            if not config_id:
+                messages.error(request, 'Configuration non spécifiée.')
+                return redirect('devices:dashboard:attendance_sync')
+            
+            try:
+                result = async_to_sync(AttendanceSyncManager.sync_config_attendance)(
+                    config_id=int(config_id)
+                )
+                
+                if result.failed == 0:
+                    messages.success(
+                        request,
+                        f'Synchronisation réussie : {result.sent} pointages envoyés.'
+                    )
+                else:
+                    messages.warning(
+                        request,
+                        f'Synchronisation partielle : {result.sent} envoyés, {result.failed} échoués.'
+                    )
+            except Exception as e:
+                messages.error(request, f'Erreur lors de la synchronisation : {str(e)}')
+        
         elif action == 'reset_failed':
-            failed_count = AttendanceLog.objects.filter(sync_status='failed').update(
-                sync_status='pending',
-                retry_count=0
-            )
-            messages.success(request, f'{failed_count} pointages réinitialisés pour retry.')
+            from asgiref.sync import async_to_sync
+            from ..services.attendance_sync_service import AttendanceSyncManager
+            
+            try:
+                count = async_to_sync(AttendanceSyncManager.reset_failed_logs)(all_failed=True)
+                messages.success(request, f'{count} pointages réinitialisés pour retry.')
+            except Exception as e:
+                messages.error(request, f'Erreur lors de la réinitialisation : {str(e)}')
         
         return redirect('devices:dashboard:attendance_sync')
 

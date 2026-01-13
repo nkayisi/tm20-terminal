@@ -310,3 +310,44 @@ def sync_users_to_terminal(terminal_id: int) -> Dict[str, Any]:
     except Exception as e:
         logger.exception(f"Erreur sync_users_to_terminal: {e}")
         raise
+
+
+@shared_task(
+    bind=True,
+    name='devices.auto_sync_all_attendance',
+    max_retries=2,
+    default_retry_delay=120,
+)
+def auto_sync_all_attendance(self) -> Dict[str, Any]:
+    """
+    Tâche cron pour synchroniser automatiquement tous les pointages en attente.
+    
+    Cette tâche est exécutée périodiquement (toutes les 5-10 minutes) pour
+    envoyer automatiquement les pointages vers tous les services tiers actifs.
+    
+    Returns:
+        Résultats de synchronisation par configuration
+    """
+    from ..services.attendance_sync_service import AttendanceSyncManager
+    
+    logger.info("Tâche auto_sync_all_attendance démarrée (cron)")
+    
+    try:
+        results = async_to_sync(AttendanceSyncManager.sync_all_pending)()
+        
+        total_sent = sum(r.sent for r in results.values())
+        total_failed = sum(r.failed for r in results.values())
+        
+        logger.info(
+            f"Auto-sync terminée: {total_sent} pointages envoyés, "
+            f"{total_failed} échoués sur {len(results)} configurations"
+        )
+        
+        return {
+            config_name: result.to_dict()
+            for config_name, result in results.items()
+        }
+        
+    except Exception as e:
+        logger.exception(f"Erreur auto_sync_all_attendance: {e}")
+        raise

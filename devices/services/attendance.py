@@ -121,13 +121,32 @@ class AttendanceService:
                 enrollid=record.enrollid
             ).first()
         
+        # Détermination automatique du statut entrée/sortie
+        # Si le terminal envoie déjà un inout valide (0 ou 1), on le garde
+        # Sinon, on détermine automatiquement basé sur le dernier pointage
+        inout_status = record.inout
+        
+        if record.enrollid > 0:
+            # Déterminer automatiquement l'entrée/sortie basé sur l'historique
+            inout_status = AttendanceLog.determine_inout_status(
+                enrollid=record.enrollid,
+                terminal=terminal,
+                current_time=log_time
+            )
+            
+            logger.debug(
+                f"[{terminal.sn}] User {record.enrollid}: "
+                f"Auto-determined inout={inout_status} "
+                f"({'Entrée' if inout_status == 0 else 'Sortie'})"
+            )
+        
         return AttendanceLog(
             terminal=terminal,
             user=user,
             enrollid=record.enrollid,
             time=log_time,
             mode=record.mode,
-            inout=record.inout,
+            inout=inout_status,  # Utilise le statut déterminé automatiquement
             event=record.event,
             temperature=record.temp,
             verifymode=record.verifymode,

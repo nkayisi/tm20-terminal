@@ -58,6 +58,38 @@ services:
     volumes:
       - redis_data:/data
 
+  celery-worker:
+    build: .
+    container_name: tm20_celery_worker
+    entrypoint: []
+    command: celery -A config worker -l info -Q sync,maintenance
+    volumes:
+      - .:/app
+    environment:
+      - DEBUG=1
+      - DATABASE_URL=postgres://tm20_user:tm20_password@postgres:5432/tm20_db
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_SECRET_KEY=change-this-in-production-to-a-secure-random-key
+    depends_on:
+      - postgres
+      - redis
+
+  celery-beat:
+    build: .
+    container_name: tm20_celery_beat
+    entrypoint: []
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/app
+    environment:
+      - DEBUG=1
+      - DATABASE_URL=postgres://tm20_user:tm20_password@postgres:5432/tm20_db
+      - REDIS_URL=redis://redis:6379/0
+      - DJANGO_SECRET_KEY=change-this-in-production-to-a-secure-random-key
+    depends_on:
+      - postgres
+      - redis
+
 volumes:
   postgres_data:
   redis_data:
