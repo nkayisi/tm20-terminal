@@ -6,6 +6,7 @@ Configurations tiers, horaires, synchronisation
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views import View
 from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 from ..models import (
     Terminal,
@@ -18,7 +19,7 @@ from .forms import ThirdPartyConfigForm, TerminalScheduleForm, UserSyncForm
 from ..services.user_sync_service import UserSyncService
 
 
-class ThirdPartyConfigsView(View):
+class ThirdPartyConfigsView(LoginRequiredMixin, View):
     """Vue de gestion des configurations services tiers"""
     
     def get(self, request):
@@ -49,7 +50,7 @@ class ThirdPartyConfigsView(View):
             })
 
 
-class TerminalSchedulesView(View):
+class TerminalSchedulesView(LoginRequiredMixin, View):
     """Vue de gestion des horaires de terminaux"""
     
     def get(self, request, terminal_id=None):
@@ -103,7 +104,7 @@ class TerminalSchedulesView(View):
         return redirect('devices:dashboard:schedules_terminal', terminal_id=terminal_id)
 
 
-class UserSyncView(View):
+class UserSyncView(LoginRequiredMixin, View):
     """Vue de synchronisation des utilisateurs"""
     
     def get(self, request):
@@ -203,7 +204,7 @@ class UserSyncView(View):
         return redirect('devices:dashboard:user_sync')
 
 
-class AttendanceSyncView(View):
+class AttendanceSyncView(LoginRequiredMixin, View):
     """Vue de synchronisation des pointages"""
     
     def get(self, request):
@@ -295,7 +296,7 @@ class AttendanceSyncView(View):
         return redirect('devices:dashboard:attendance_sync')
 
 
-class ManagementDashboardView(View):
+class ManagementDashboardView(LoginRequiredMixin, View):
     """Vue principale du dashboard de gestion"""
     
     def get(self, request):

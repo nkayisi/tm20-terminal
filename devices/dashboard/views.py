@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 from ..models import Terminal, AttendanceLog, CommandQueue
 from ..core.device_manager import DeviceManager
@@ -19,7 +20,7 @@ from ..core.metrics import MetricsCollector
 from ..core.events import EventBus
 
 
-class DashboardView(View):
+class DashboardView(LoginRequiredMixin, View):
     """Vue principale du dashboard"""
     
     def get(self, request):
