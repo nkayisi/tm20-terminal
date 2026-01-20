@@ -148,7 +148,6 @@ volumes:
   media_volume:
   logs_volume:
 
-
 # ==========================
 # Networks
 # ==========================
