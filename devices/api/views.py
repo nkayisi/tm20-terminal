@@ -261,7 +261,6 @@ class UserSyncView(BaseAPIView):
         Body:
             config_id: ID de la configuration du service tiers
             async: Si true, exécute en tâche de fond (défaut: false)
-            ecole: (optionnel) code d'école à transmettre en paramètre GET au service tiers
         """
         terminal = get_object_or_404(Terminal, id=terminal_id)
         data = self.parse_json_body(request)
@@ -282,17 +281,10 @@ class UserSyncView(BaseAPIView):
         
         config = get_object_or_404(ThirdPartyConfig, id=config_id)
         
-        # Paramètres supplémentaires pour le service tiers (ex: ?ecole=XXXX)
-        fetch_params = {}
-        ecole = data.get('ecole')
-        if ecole:
-            fetch_params['ecole'] = ecole
-        
         if data.get('async', False):
             task = sync_users_from_third_party.delay(
                 terminal_id=terminal.id,
-                config_id=config.id,
-                **fetch_params,
+                config_id=config.id
             )
             return self.success_response(
                 {'task_id': task.id},
@@ -302,8 +294,7 @@ class UserSyncView(BaseAPIView):
         try:
             result = async_to_sync(UserSyncManager.sync_terminal_users)(
                 terminal_id=terminal.id,
-                config_id=config.id,
-                **fetch_params,
+                config_id=config.id
             )
             
             return self.json_response({
