@@ -51,10 +51,10 @@
     </style>
   </head>
   <body class="h-full font-sans antialiased">
-    <div class="min-h-full flex">
+    <div class="min-h-full flex flex-col lg:flex-row">
       <!-- Left Panel - Branding -->
       <div
-        class="hidden lg:flex lg:w-1/2 gradient-bg items-center justify-center p-12"
+        class="hidden lg:flex lg:w-1/2 gradient-bg items-center justify-center p-8 xl:p-12"
       >
         <div class="max-w-md text-center">
           <div class="flex items-center justify-center mb-8">
@@ -134,7 +134,9 @@
       </div>
 
       <!-- Right Panel - Login Form -->
-      <div class="flex-1 flex items-center justify-center p-8 bg-gray-50">
+      <div
+        class="flex-1 flex items-center justify-center px-4 py-8 sm:p-8 bg-gray-50"
+      >
         <div class="w-full max-w-md">
           <!-- Mobile Logo -->
           <div class="lg:hidden flex items-center justify-center mb-8">

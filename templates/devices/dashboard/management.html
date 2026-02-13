@@ -1,33 +1,34 @@
-{% extends "devices/dashboard/base.html" %} 
-{% block title %}Vue d'ensemble{% endblock %} 
-{% block content %}
+{% extends "devices/dashboard/base.html" %} {% block title %}Vue d'ensemble{%
+endblock %} {% block content %}
 <div class="space-y-6 animate-fade-in">
   <!-- Page Header -->
-  <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-3xl font-bold text-gray-900">Vue d'ensemble</h1>
-      <p class="mt-1 text-sm text-gray-500">
-        Configuration et synchronisation des terminaux biométriques
-      </p>
-    </div>
+  <div>
+    <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
+      Vue d'ensemble
+    </h1>
+    <p class="mt-1 text-xs sm:text-sm text-gray-500">
+      Configuration et synchronisation des terminaux biométriques
+    </p>
   </div>
 
   <!-- Stats Grid -->
-  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+  <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-4">
     <!-- Terminaux Actifs -->
     <div
-      class="stat-card relative overflow-hidden bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover"
+      class="stat-card relative overflow-hidden bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 card-hover"
       style="--tw-gradient-from: #0ea5e9; --tw-gradient-to: #0284c7"
     >
       <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-gray-600">Terminaux Actifs</p>
-          <p class="mt-2 text-3xl font-bold text-gray-900">
+        <div class="min-w-0">
+          <p class="text-xs sm:text-sm font-medium text-gray-600 truncate">
+            Terminaux Actifs
+          </p>
+          <p class="mt-1 sm:mt-2 text-xl sm:text-3xl font-bold text-gray-900">
             {{ terminals_count }}
           </p>
         </div>
         <div
-          class="flex items-center justify-center w-12 h-12 rounded-lg bg-primary-50"
+          class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-primary-50 flex-shrink-0 ml-2"
         >
           <svg
             class="w-6 h-6 text-primary-600"
@@ -48,18 +49,20 @@
 
     <!-- Services Tiers -->
     <div
-      class="stat-card relative overflow-hidden bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover"
+      class="stat-card relative overflow-hidden bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 card-hover"
       style="--tw-gradient-from: #10b981; --tw-gradient-to: #059669"
     >
       <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-gray-600">Services Tiers</p>
-          <p class="mt-2 text-3xl font-bold text-gray-900">
+        <div class="min-w-0">
+          <p class="text-xs sm:text-sm font-medium text-gray-600 truncate">
+            Services Tiers
+          </p>
+          <p class="mt-1 sm:mt-2 text-xl sm:text-3xl font-bold text-gray-900">
             {{ configs_count }}
           </p>
         </div>
         <div
-          class="flex items-center justify-center w-12 h-12 rounded-lg bg-green-50"
+          class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-green-50 flex-shrink-0 ml-2"
         >
           <svg
             class="w-6 h-6 text-green-600"
@@ -80,18 +83,20 @@
 
     <!-- Horaires Configurés -->
     <div
-      class="stat-card relative overflow-hidden bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover"
+      class="stat-card relative overflow-hidden bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 card-hover"
       style="--tw-gradient-from: #f59e0b; --tw-gradient-to: #d97706"
     >
       <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-gray-600">Horaires Configurés</p>
-          <p class="mt-2 text-3xl font-bold text-gray-900">
+        <div class="min-w-0">
+          <p class="text-xs sm:text-sm font-medium text-gray-600 truncate">
+            Horaires Configurés
+          </p>
+          <p class="mt-1 sm:mt-2 text-xl sm:text-3xl font-bold text-gray-900">
             {{ schedules_count }}
           </p>
         </div>
         <div
-          class="flex items-center justify-center w-12 h-12 rounded-lg bg-yellow-50"
+          class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-yellow-50 flex-shrink-0 ml-2"
         >
           <svg
             class="w-6 h-6 text-yellow-600"
@@ -112,18 +117,20 @@
 
     <!-- Pointages en Attente -->
     <div
-      class="stat-card relative overflow-hidden bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover"
+      class="stat-card relative overflow-hidden bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 card-hover"
       style="--tw-gradient-from: #ef4444; --tw-gradient-to: #dc2626"
     >
       <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-gray-600">Pointages en Attente</p>
-          <p class="mt-2 text-3xl font-bold text-gray-900">
+        <div class="min-w-0">
+          <p class="text-xs sm:text-sm font-medium text-gray-600 truncate">
+            Pointages en Attente
+          </p>
+          <p class="mt-1 sm:mt-2 text-xl sm:text-3xl font-bold text-gray-900">
             {{ pending_attendance }}
           </p>
         </div>
         <div
-          class="flex items-center justify-center w-12 h-12 rounded-lg bg-red-50"
+          class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-red-50 flex-shrink-0 ml-2"
         >
           <svg
             class="w-6 h-6 text-red-600"
@@ -144,18 +151,18 @@
   </div>
 
   <!-- Quick Actions Grid -->
-  <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+  <div class="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2">
     <!-- Services Tiers -->
     <div
       class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden card-hover"
     >
-      <div class="p-6">
+      <div class="p-4 sm:p-6">
         <div class="flex items-center space-x-3 mb-4">
           <div
-            class="flex items-center justify-center w-10 h-10 rounded-lg bg-primary-50"
+            class="flex items-center justify-center w-10 h-10 rounded-lg bg-primary-50 flex-shrink-0"
           >
             <svg
-              class="w-6 h-6 text-primary-600"
+              class="w-5 h-5 sm:w-6 sm:h-6 text-primary-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -168,9 +175,13 @@
               ></path>
             </svg>
           </div>
-          <div>
-            <h3 class="text-lg font-semibold text-gray-900">Services Tiers</h3>
-            <p class="text-sm text-gray-500">
+          <div class="min-w-0">
+            <h3
+              class="text-base sm:text-lg font-semibold text-gray-900 truncate"
+            >
+              Services Tiers
+            </h3>
+            <p class="text-xs sm:text-sm text-gray-500 truncate">
               Configurez les connexions externes
             </p>
           </div>
@@ -188,13 +199,13 @@
     <div
       class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden card-hover"
     >
-      <div class="p-6">
+      <div class="p-4 sm:p-6">
         <div class="flex items-center space-x-3 mb-4">
           <div
-            class="flex items-center justify-center w-10 h-10 rounded-lg bg-green-50"
+            class="flex items-center justify-center w-10 h-10 rounded-lg bg-green-50 flex-shrink-0"
           >
             <svg
-              class="w-6 h-6 text-green-600"
+              class="w-5 h-5 sm:w-6 sm:h-6 text-green-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -207,11 +218,13 @@
               ></path>
             </svg>
           </div>
-          <div>
-            <h3 class="text-lg font-semibold text-gray-900">
+          <div class="min-w-0">
+            <h3
+              class="text-base sm:text-lg font-semibold text-gray-900 truncate"
+            >
               Horaires de Travail
             </h3>
-            <p class="text-sm text-gray-500">
+            <p class="text-xs sm:text-sm text-gray-500 truncate">
               Définissez les horaires par terminal
             </p>
           </div>
@@ -229,13 +242,13 @@
     <div
       class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden card-hover"
     >
-      <div class="p-6">
+      <div class="p-4 sm:p-6">
         <div class="flex items-center space-x-3 mb-4">
           <div
-            class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-50"
+            class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-50 flex-shrink-0"
           >
             <svg
-              class="w-6 h-6 text-blue-600"
+              class="w-5 h-5 sm:w-6 sm:h-6 text-blue-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -248,11 +261,13 @@
               ></path>
             </svg>
           </div>
-          <div>
-            <h3 class="text-lg font-semibold text-gray-900">
+          <div class="min-w-0">
+            <h3
+              class="text-base sm:text-lg font-semibold text-gray-900 truncate"
+            >
               Sync Utilisateurs
             </h3>
-            <p class="text-sm text-gray-500">
+            <p class="text-xs sm:text-sm text-gray-500 truncate">
               Récupérez les utilisateurs depuis vos services
             </p>
           </div>
@@ -270,13 +285,13 @@
     <div
       class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden card-hover"
     >
-      <div class="p-6">
+      <div class="p-4 sm:p-6">
         <div class="flex items-center space-x-3 mb-4">
           <div
-            class="flex items-center justify-center w-10 h-10 rounded-lg bg-yellow-50"
+            class="flex items-center justify-center w-10 h-10 rounded-lg bg-yellow-50 flex-shrink-0"
           >
             <svg
-              class="w-6 h-6 text-yellow-600"
+              class="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -289,9 +304,13 @@
               ></path>
             </svg>
           </div>
-          <div>
-            <h3 class="text-lg font-semibold text-gray-900">Sync Pointages</h3>
-            <p class="text-sm text-gray-500">
+          <div class="min-w-0">
+            <h3
+              class="text-base sm:text-lg font-semibold text-gray-900 truncate"
+            >
+              Sync Pointages
+            </h3>
+            <p class="text-xs sm:text-sm text-gray-500 truncate">
               Envoyez les pointages vers vos systèmes
             </p>
           </div>
@@ -311,29 +330,37 @@
   <div
     class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
   >
-    <div class="px-6 py-4 border-b border-gray-200">
-      <h3 class="text-lg font-semibold text-gray-900">Mappings Récents</h3>
+    <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+      <h3 class="text-base sm:text-lg font-semibold text-gray-900">
+        Mappings Récents
+      </h3>
     </div>
     <div class="divide-y divide-gray-200">
       {% for mapping in recent_mappings %}
-      <div class="px-6 py-4 hover:bg-gray-50 transition-colors duration-150">
+      <div
+        class="px-4 sm:px-6 py-3 sm:py-4 hover:bg-gray-50 transition-colors duration-150"
+      >
         <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-4">
+          <div class="flex items-center space-x-3 min-w-0">
             <div class="flex-shrink-0">
               <div
-                class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold text-sm"
+                class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold text-xs sm:text-sm"
               >
                 {{ mapping.terminal.sn|slice:":2"|upper }}
               </div>
             </div>
-            <div>
-              <p class="text-sm font-medium text-gray-900">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-gray-900 truncate">
                 {{ mapping.terminal.sn }}
               </p>
-              <p class="text-sm text-gray-500">{{ mapping.config.name }}</p>
+              <p class="text-xs sm:text-sm text-gray-500 truncate">
+                {{ mapping.config.name }}
+              </p>
             </div>
           </div>
-          <div class="flex items-center space-x-2">
+          <div
+            class="flex items-center space-x-1 sm:space-x-2 flex-shrink-0 ml-2"
+          >
             {% if mapping.sync_users %}
             <span
               class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"

@@ -49,51 +49,59 @@ Réel{% endblock %} {% block extra_css %}
 {% endblock %} {% block content %}
 <div x-data="dashboard()" x-init="init()" class="space-y-6 animate-fade-in">
   <!-- Connection Status Badge -->
-  <div class="fixed top-20 right-6 z-40">
+  <div class="fixed top-16 sm:top-20 right-3 sm:right-6 z-30">
     <div
       x-show="connected"
-      class="flex items-center px-4 py-2 bg-green-50 border border-green-200 rounded-lg shadow-lg"
+      class="flex items-center px-3 py-1.5 sm:px-4 sm:py-2 bg-green-50 border border-green-200 rounded-lg shadow-lg"
     >
       <span class="status-indicator online mr-2"></span>
-      <span class="text-sm font-medium text-green-800">Connecté</span>
+      <span class="text-xs sm:text-sm font-medium text-green-800"
+        >Connecté</span
+      >
     </div>
     <div
       x-show="!connected"
-      class="flex items-center px-4 py-2 bg-red-50 border border-red-200 rounded-lg shadow-lg"
+      class="flex items-center px-3 py-1.5 sm:px-4 sm:py-2 bg-red-50 border border-red-200 rounded-lg shadow-lg"
     >
       <span class="status-indicator offline mr-2"></span>
-      <span class="text-sm font-medium text-red-800">Déconnecté</span>
+      <span class="text-xs sm:text-sm font-medium text-red-800"
+        >Déconnecté</span
+      >
     </div>
   </div>
 
   <!-- Page Header -->
   <div>
-    <h1 class="text-3xl font-bold text-gray-900">Monitoring Temps Réel</h1>
-    <p class="mt-1 text-sm text-gray-500">
+    <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
+      Monitoring Temps Réel
+    </h1>
+    <p class="mt-1 text-xs sm:text-sm text-gray-500">
       Surveillance en direct des terminaux biométriques
     </p>
   </div>
 
   <!-- Stats Grid -->
-  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+  <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-4">
     <!-- Connected Terminals -->
     <div
-      class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover"
+      class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 card-hover"
       style="--tw-gradient-from: #10b981; --tw-gradient-to: #059669"
     >
       <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-gray-600">Terminaux Connectés</p>
+        <div class="min-w-0">
+          <p class="text-xs sm:text-sm font-medium text-gray-600 truncate">
+            Terminaux Connectés
+          </p>
           <p
-            class="mt-2 text-3xl font-bold text-gray-900"
+            class="mt-1 sm:mt-2 text-xl sm:text-3xl font-bold text-gray-900"
             x-text="stats.connected + ' / ' + stats.total"
           ></p>
         </div>
         <div
-          class="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center"
+          class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0 ml-2"
         >
           <svg
-            class="w-6 h-6 text-green-600"
+            class="w-5 h-5 sm:w-6 sm:h-6 text-green-600"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -111,26 +119,28 @@ Réel{% endblock %} {% block extra_css %}
 
     <!-- Logs Today -->
     <div
-      class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover"
+      class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 card-hover"
       style="--tw-gradient-from: #0ea5e9; --tw-gradient-to: #0284c7"
     >
       <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-gray-600">Pointages Aujourd'hui</p>
+        <div class="min-w-0">
+          <p class="text-xs sm:text-sm font-medium text-gray-600 truncate">
+            Pointages Aujourd'hui
+          </p>
           <p
-            class="mt-2 text-3xl font-bold text-gray-900"
+            class="mt-1 sm:mt-2 text-xl sm:text-3xl font-bold text-gray-900"
             x-text="stats.logsToday"
           ></p>
           <p
-            class="mt-1 text-xs text-gray-500"
+            class="mt-1 text-xs text-gray-500 hidden sm:block"
             x-text="stats.logsRate + '/min'"
           ></p>
         </div>
         <div
-          class="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center"
+          class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 ml-2"
         >
           <svg
-            class="w-6 h-6 text-blue-600"
+            class="w-5 h-5 sm:w-6 sm:h-6 text-blue-600"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -148,26 +158,28 @@ Réel{% endblock %} {% block extra_css %}
 
     <!-- Messages -->
     <div
-      class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover"
+      class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 card-hover"
       style="--tw-gradient-from: #8b5cf6; --tw-gradient-to: #7c3aed"
     >
       <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-gray-600">Messages WebSocket</p>
+        <div class="min-w-0">
+          <p class="text-xs sm:text-sm font-medium text-gray-600 truncate">
+            Messages WebSocket
+          </p>
           <p
-            class="mt-2 text-3xl font-bold text-gray-900"
+            class="mt-1 sm:mt-2 text-xl sm:text-3xl font-bold text-gray-900"
             x-text="stats.messages"
           ></p>
           <p
-            class="mt-1 text-xs text-gray-500"
+            class="mt-1 text-xs text-gray-500 hidden sm:block"
             x-text="stats.messageRate + '/s'"
           ></p>
         </div>
         <div
-          class="w-12 h-12 rounded-lg bg-purple-50 flex items-center justify-center"
+          class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0 ml-2"
         >
           <svg
-            class="w-6 h-6 text-purple-600"
+            class="w-5 h-5 sm:w-6 sm:h-6 text-purple-600"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -185,26 +197,28 @@ Réel{% endblock %} {% block extra_css %}
 
     <!-- Latency -->
     <div
-      class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover"
+      class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 card-hover"
       style="--tw-gradient-from: #f59e0b; --tw-gradient-to: #d97706"
     >
       <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-gray-600">Latence Moyenne</p>
+        <div class="min-w-0">
+          <p class="text-xs sm:text-sm font-medium text-gray-600 truncate">
+            Latence Moyenne
+          </p>
           <p
-            class="mt-2 text-3xl font-bold text-gray-900"
+            class="mt-1 sm:mt-2 text-xl sm:text-3xl font-bold text-gray-900"
             x-text="stats.latency + 'ms'"
           ></p>
           <p
-            class="mt-1 text-xs text-gray-500"
+            class="mt-1 text-xs text-gray-500 hidden sm:block"
             x-text="'P95: ' + stats.latencyP95 + 'ms'"
           ></p>
         </div>
         <div
-          class="w-12 h-12 rounded-lg bg-yellow-50 flex items-center justify-center"
+          class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-yellow-50 flex items-center justify-center flex-shrink-0 ml-2"
         >
           <svg
-            class="w-6 h-6 text-yellow-600"
+            class="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -222,56 +236,62 @@ Réel{% endblock %} {% block extra_css %}
   </div>
 
   <!-- Terminals and Logs Grid -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
     <!-- Terminals List -->
     <div
       class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
     >
-      <div class="px-6 py-4 border-b border-gray-200">
-        <h3 class="text-lg font-semibold text-gray-900">Terminaux</h3>
+      <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+        <h3 class="text-base sm:text-lg font-semibold text-gray-900">
+          Terminaux
+        </h3>
       </div>
       <div
-        class="divide-y divide-gray-200 max-h-96 overflow-y-auto scrollbar-thin"
+        class="divide-y divide-gray-200 max-h-72 sm:max-h-96 overflow-y-auto scrollbar-thin"
       >
         <template x-for="terminal in terminals" :key="terminal.id">
           <div
-            class="px-6 py-4 hover:bg-gray-50 transition-colors duration-150"
+            class="px-4 sm:px-6 py-3 sm:py-4 hover:bg-gray-50 transition-colors duration-150"
           >
             <div class="flex items-center justify-between">
-              <div class="flex items-center space-x-3">
+              <div class="flex items-center space-x-3 min-w-0">
                 <div
-                  class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold text-sm"
+                  class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0"
                   x-text="terminal.sn.substring(0, 2).toUpperCase()"
                 ></div>
-                <div>
+                <div class="min-w-0">
                   <p
-                    class="text-sm font-medium text-gray-900"
+                    class="text-sm font-medium text-gray-900 truncate"
                     x-text="terminal.sn"
                   ></p>
                   <p
-                    class="text-xs text-gray-500"
+                    class="text-xs text-gray-500 truncate"
                     x-text="terminal.model || 'TM20'"
                   ></p>
                 </div>
               </div>
-              <div class="flex items-center space-x-2">
+              <div class="flex items-center space-x-2 flex-shrink-0 ml-2">
                 <span
                   x-show="terminal.connected"
-                  class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                  class="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
                 >
                   <span class="status-indicator online mr-1.5"></span>
-                  En ligne
+                  <span class="hidden sm:inline">En ligne</span>
+                  <span class="sm:hidden">On</span>
                 </span>
                 <span
                   x-show="!terminal.connected"
-                  class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                  class="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
                 >
                   <span class="status-indicator offline mr-1.5"></span>
-                  Hors ligne
+                  <span class="hidden sm:inline">Hors ligne</span>
+                  <span class="sm:hidden">Off</span>
                 </span>
               </div>
             </div>
-            <div class="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+            <div
+              class="mt-2 flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500"
+            >
               <span
                 x-text="'Utilisateurs: ' + (terminal.users_count || 0)"
               ></span>
@@ -279,6 +299,7 @@ Réel{% endblock %} {% block extra_css %}
               <span
                 x-show="terminal.last_seen"
                 x-text="'Vu: ' + formatTime(terminal.last_seen)"
+                class="hidden sm:inline"
               ></span>
             </div>
           </div>
@@ -306,31 +327,36 @@ Réel{% endblock %} {% block extra_css %}
     <div
       class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
     >
-      <div class="px-6 py-4 border-b border-gray-200">
-        <h3 class="text-lg font-semibold text-gray-900">Pointages Récents</h3>
+      <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+        <h3 class="text-base sm:text-lg font-semibold text-gray-900">
+          Pointages Récents
+        </h3>
       </div>
       <div
-        class="divide-y divide-gray-200 max-h-96 overflow-y-auto scrollbar-thin"
+        class="divide-y divide-gray-200 max-h-72 sm:max-h-96 overflow-y-auto scrollbar-thin"
       >
         <template x-for="log in logs" :key="log.id">
           <div
-            class="px-6 py-3 hover:bg-gray-50 transition-colors duration-150 animate-slide-up"
+            class="px-4 sm:px-6 py-3 hover:bg-gray-50 transition-colors duration-150 animate-slide-up"
           >
             <div class="flex items-center justify-between">
-              <div class="flex items-center space-x-3">
+              <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
                 <div
-                  class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold"
+                  class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0"
                   x-text="log.user_name ? log.user_name.substring(0, 2).toUpperCase() : log.enrollid"
                 ></div>
-                <div>
+                <div class="min-w-0">
                   <p
-                    class="text-sm font-medium text-gray-900"
+                    class="text-sm font-medium text-gray-900 truncate"
                     x-text="log.user_name || 'ID: ' + log.enrollid"
                   ></p>
-                  <p class="text-xs text-gray-500" x-text="log.terminal_sn"></p>
+                  <p
+                    class="text-xs text-gray-500 truncate"
+                    x-text="log.terminal_sn"
+                  ></p>
                 </div>
               </div>
-              <div class="text-right">
+              <div class="text-right flex-shrink-0 ml-2">
                 <span
                   x-show="log.inout === 0"
                   class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800"
@@ -373,14 +399,18 @@ Réel{% endblock %} {% block extra_css %}
   <div
     class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
   >
-    <div class="px-6 py-4 border-b border-gray-200">
-      <h3 class="text-lg font-semibold text-gray-900">Événements Système</h3>
+    <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+      <h3 class="text-base sm:text-lg font-semibold text-gray-900">
+        Événements Système
+      </h3>
     </div>
     <div
-      class="divide-y divide-gray-200 max-h-64 overflow-y-auto scrollbar-thin"
+      class="divide-y divide-gray-200 max-h-48 sm:max-h-64 overflow-y-auto scrollbar-thin"
     >
       <template x-for="event in events" :key="event.id">
-        <div class="px-6 py-3 hover:bg-gray-50 transition-colors duration-150">
+        <div
+          class="px-4 sm:px-6 py-3 hover:bg-gray-50 transition-colors duration-150"
+        >
           <div class="flex items-start space-x-3">
             <div class="flex-shrink-0 mt-0.5">
               <div :class="getEventIcon(event.type)"></div>
