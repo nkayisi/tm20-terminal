@@ -147,23 +147,22 @@ class ThirdPartySyncService:
         if not attendance_logs:
             return True, None
         
-        payload = {
-            'attendance': [
-                {
-                    'terminal_sn': log.terminal.sn,
-                    'enrollid': log.enrollid,
-                    'user_name': log.user.name if log.user else '',
-                    'time': log.time.isoformat(),
-                    'mode': log.mode,
-                    'inout': log.inout,
-                    'event': log.event,
-                    'temperature': float(log.temperature) if log.temperature else None,
-                    'access_granted': log.access_granted,
-                    'log_id': log.id,
-                }
-                for log in attendance_logs
-            ]
-        }
+        # On envoie directement la liste des pointages (tableau JSON racine)
+        payload = [
+            {
+                'terminal_sn': log.terminal.sn,
+                'enrollid': log.enrollid,
+                'user_name': log.user.name if log.user else '',
+                'time': log.time.isoformat(),
+                'mode': log.mode,
+                'inout': log.inout,
+                'event': log.event,
+                'temperature': float(log.temperature) if log.temperature else None,
+                'access_granted': log.access_granted,
+                'log_id': log.id,
+            }
+            for log in attendance_logs
+        ]
         
         success, data, error = await self._make_request(
             'POST',

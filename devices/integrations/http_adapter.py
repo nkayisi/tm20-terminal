@@ -301,12 +301,8 @@ class HTTPAdapter(ThirdPartyAdapter):
         try:
             url = self.build_url(self.config.attendance_endpoint)
 
-            payload = {
-                'attendance': [att.to_dict() for att in attendance_list],
-                'source': 'tm20_biometric',
-                'timestamp': datetime.utcnow().isoformat(),
-                'count': len(attendance_list),
-            }
+            # On envoie directement la liste des pointages (tableau JSON racine)
+            payload = [att.to_dict() for att in attendance_list]
 
             response = await self._request('POST', url, json=payload)
 
