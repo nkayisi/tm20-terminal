@@ -36,6 +36,11 @@ logs/*.log
 # Docker
 *.log
 
+# Fichiers Docker de DÉVELOPPEMENT uniquement (non versionnés).
+# Seuls Dockerfile.prod et docker-compose.prod.yml sont suivis pour la prod.
+/Dockerfile
+/docker-compose.yml
+
 # Fichiers de test/debug parasites
 cookies.txt
 response.html
