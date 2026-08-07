@@ -1,17 +1,37 @@
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-secret-key-change-in-production')
 
-DEBUG = os.getenv('DEBUG', '0') == '1'
+def env_bool(name: str, default: str = '0') -> bool:
+    """Lit une variable d'environnement booléenne (1/true/yes/on)."""
+    return os.getenv(name, default).strip().lower() in ('1', 'true', 'yes', 'on')
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,192.168.107.4,django-http.tm20-server.orb.local,*.orb.local').split(',')
+
+DEBUG = env_bool('DEBUG', '0')
+
+# Clé secrète : un fallback n'est toléré qu'en mode DEBUG.
+# En production (DEBUG=0), l'absence de DJANGO_SECRET_KEY doit stopper le démarrage.
+_DEV_SECRET_KEY = 'dev-secret-key-change-in-production'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', '')
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = _DEV_SECRET_KEY
+    else:
+        raise ImproperlyConfigured(
+            "DJANGO_SECRET_KEY est obligatoire lorsque DEBUG=0. "
+            "Définissez une clé secrète unique dans l'environnement."
+        )
+
+ALLOWED_HOSTS = [
+    h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()
+]
 
 INSTALLED_APPS = [
     'daphne',
@@ -64,39 +84,48 @@ ASGI_APPLICATION = 'config.asgi.application'
 # Supporte postgres:// ET postgresql:// (Render utilise postgresql://)
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgres://tm20_user:tm20_password@localhost:5432/tm20_db')
 
-if DATABASE_URL:
-    import re
-    # Regex qui supporte postgres:// ET postgresql://
-    match = re.match(r'postgres(?:ql)?://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', DATABASE_URL)
-    if match:
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql',
-                'NAME': match.group(5),
-                'USER': match.group(1),
-                'PASSWORD': match.group(2),
-                'HOST': match.group(3),
-                'PORT': match.group(4),
-                'CONN_MAX_AGE': 600,  # Connection pooling
-                'OPTIONS': {
-                    'connect_timeout': 10,
-                },
-            }
-        }
-    else:
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': BASE_DIR / 'db.sqlite3',
-            }
-        }
-else:
-    DATABASES = {
+
+def _sqlite_config():
+    return {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+
+
+def _postgres_config(url: str):
+    """Parse une URL PostgreSQL de façon robuste.
+
+    Gère les mots de passe contenant des caractères spéciaux (@, :, /),
+    l'absence de port explicite, et les paramètres de query (ex: sslmode).
+    """
+    from urllib.parse import urlparse, unquote, parse_qs
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ('postgres', 'postgresql') or not parsed.hostname:
+        return None
+
+    options = {'connect_timeout': 10}
+    sslmode = parse_qs(parsed.query).get('sslmode')
+    if sslmode:
+        options['sslmode'] = sslmode[0]
+
+    return {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': unquote(parsed.path.lstrip('/')),
+            'USER': unquote(parsed.username or ''),
+            'PASSWORD': unquote(parsed.password or ''),
+            'HOST': parsed.hostname,
+            'PORT': str(parsed.port or 5432),
+            'CONN_MAX_AGE': 600,  # Connection pooling
+            'OPTIONS': options,
+        }
+    }
+
+
+DATABASES = (DATABASE_URL and _postgres_config(DATABASE_URL)) or _sqlite_config()
 
 # Redis Channel Layer
 REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
@@ -215,16 +244,20 @@ LOGIN_URL = '/'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 
+# Cookies sécurisés : activés par défaut en production (DEBUG=0),
+# désactivables via SECURE_COOKIES pour le dev en HTTP.
+SECURE_COOKIES = env_bool('SECURE_COOKIES', '0' if DEBUG else '1')
+
 # Session Configuration (Redis pour partage entre services)
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'
 SESSION_COOKIE_AGE = 86400  # 24 heures
-SESSION_COOKIE_SECURE = False  # True en HTTPS
+SESSION_COOKIE_SECURE = SECURE_COOKIES  # True en HTTPS
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 
 # CSRF Configuration
-CSRF_COOKIE_SECURE = False  # True en HTTPS
+CSRF_COOKIE_SECURE = SECURE_COOKIES  # True en HTTPS
 CSRF_COOKIE_HTTPONLY = False  # Doit être False pour JS
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000').split(',')

@@ -36,6 +36,10 @@ logs/*.log
 # Docker
 *.log
 
+# Fichiers de test/debug parasites
+cookies.txt
+response.html
+
 # OS
 .DS_Store
 Thumbs.db
