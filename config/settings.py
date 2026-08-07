@@ -191,7 +191,20 @@ TM20_SETTINGS = {
 }
 
 LOG_DIR = Path(os.environ.get("LOG_DIR", "/tmp/logs"))
-LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+# On tente de préparer un fichier de log. Si le dossier n'est pas accessible en
+# écriture (ex: conteneur non-root, dossier appartenant à root, volume monté en
+# lecture seule), on retombe sur le logging console uniquement plutôt que de
+# faire échouer le démarrage de tous les services.
+_log_file = None
+try:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    _probe = LOG_DIR / ".write_test"
+    _probe.touch()
+    _probe.unlink()
+    _log_file = str(LOG_DIR / "tm20.log")
+except OSError:
+    _log_file = None
 
 # Logging Configuration
 LOGGING = {
@@ -210,21 +223,26 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
-        "tm20_file": {
-            "level": "INFO",
-            "class": "logging.handlers.RotatingFileHandler",
-            "filename": str(LOG_DIR / "tm20.log"),
-            "maxBytes": 5 * 1024 * 1024,
-            "backupCount": 3,
-            "formatter": "verbose",
-        },
     },
 
     "root": {
-        "handlers": ["console", "tm20_file"],
+        "handlers": ["console"],
         "level": "INFO",
     },
 }
+
+# On n'ajoute le handler fichier que si le dossier de logs est réellement
+# accessible en écriture.
+if _log_file:
+    LOGGING["handlers"]["tm20_file"] = {
+        "level": "INFO",
+        "class": "logging.handlers.RotatingFileHandler",
+        "filename": _log_file,
+        "maxBytes": 5 * 1024 * 1024,
+        "backupCount": 3,
+        "formatter": "verbose",
+    }
+    LOGGING["root"]["handlers"].append("tm20_file")
 
 
 # Create logs directory

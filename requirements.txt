@@ -4,6 +4,13 @@ channels>=4.0.0
 channels-redis>=4.1.0
 daphne>=4.0.0
 
+# Redis client
+# On épingle redis-py < 8.0 : à partir de la 8.0, RESP3 est activé par défaut
+# et la sémantique des timeouts de lecture bloquante change, ce qui casse les
+# lectures du channel layer de channels-redis 4.x (TimeoutError "Timeout reading
+# from redis" -> déconnexions WebSocket en boucle).
+redis>=5.0,<8.0
+
 # Database
 psycopg2-binary>=2.9.9
 

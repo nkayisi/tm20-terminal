@@ -39,7 +39,8 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
-    DJANGO_SETTINGS_MODULE=config.settings
+    DJANGO_SETTINGS_MODULE=config.settings \
+    LOG_DIR=/var/log/tm20
 
 WORKDIR /app
 
@@ -55,13 +56,17 @@ COPY --from=builder /opt/venv /opt/venv
 # Copie du code source
 COPY . .
 
-# Collecte des fichiers statiques
-RUN python manage.py collectstatic --noinput
+# Collecte des fichiers statiques.
+# collectstatic importe les settings : avec DEBUG=0, une DJANGO_SECRET_KEY est
+# obligatoire. On fournit une clé factice valable UNIQUEMENT pour cette étape de
+# build (non persistée dans l'image) ; collectstatic n'a besoin ni d'un vrai
+# secret ni de la base de données.
+RUN DJANGO_SECRET_KEY=build-time-collectstatic-only python manage.py collectstatic --noinput
 
 # Création de l'utilisateur non-root
 RUN useradd -m -u 1000 appuser && \
-    mkdir -p /app/logs /app/media /app/staticfiles && \
-    chown -R appuser:appuser /app
+    mkdir -p /app/logs /app/media /app/staticfiles /var/log/tm20 && \
+    chown -R appuser:appuser /app /var/log/tm20
 
 # Script d'entrypoint intégré
 RUN echo '#!/bin/bash\n\
