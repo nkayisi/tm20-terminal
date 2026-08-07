@@ -34,8 +34,22 @@ logger = logging.getLogger(__name__)
 
 
 class BaseAPIView(View):
-    """Vue de base avec helpers communs"""
-    
+    """Vue de base avec helpers communs.
+
+    Exige une session authentifiée : ces endpoints exposent la gestion des
+    configurations tierces, des utilisateurs et des synchronisations, et ne
+    doivent jamais être accessibles anonymement. Un accès non authentifié
+    renvoie 401 en JSON (plutôt qu'une redirection HTML vers le login).
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {'success': False, 'error': 'Authentification requise'},
+                status=401,
+            )
+        return super().dispatch(request, *args, **kwargs)
+
     def json_response(self, data: Dict[str, Any], status: int = 200) -> JsonResponse:
         return JsonResponse(data, status=status)
     

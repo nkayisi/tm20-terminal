@@ -27,7 +27,7 @@ class DashboardView(LoginRequiredMixin, View):
         return render(request, 'devices/dashboard/index.html')
 
 
-class DashboardAPIView(View):
+class DashboardAPIView(LoginRequiredMixin, View):
     """API pour le dashboard temps réel"""
     
     def get(self, request):
@@ -78,7 +78,7 @@ class DashboardAPIView(View):
         })
 
 
-class TerminalsAPIView(View):
+class TerminalsAPIView(LoginRequiredMixin, View):
     """API pour la liste des terminaux"""
     
     def get(self, request):
@@ -146,7 +146,7 @@ class TerminalsAPIView(View):
             return f'{days}d ago'
 
 
-class LogsAPIView(View):
+class LogsAPIView(LoginRequiredMixin, View):
     """API pour les logs récents"""
     
     def get(self, request):
@@ -181,7 +181,7 @@ class LogsAPIView(View):
         return JsonResponse({'logs': data})
 
 
-class EventsAPIView(View):
+class EventsAPIView(LoginRequiredMixin, View):
     """API pour les événements récents"""
     
     def get(self, request):
@@ -196,8 +196,7 @@ class EventsAPIView(View):
         return JsonResponse({'events': data})
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class CommandAPIView(View):
+class CommandAPIView(LoginRequiredMixin, View):
     """API pour envoyer des commandes"""
     
     def post(self, request, sn):
