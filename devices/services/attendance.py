@@ -13,7 +13,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from ..models import AttendanceLog, BiometricUser, Terminal
-from ..protocol import LogRecord, SendLogMessage, TM20Parser
+from ..protocol import LogRecord, SendLogMessage, TM20Parser, make_terminal_aware
 from ..core.events import EventBus, EventType
 from ..core.metrics import MetricsCollector
 
@@ -109,7 +109,9 @@ class AttendanceService:
     
     def _prepare_log(self, terminal: Terminal, record: LogRecord) -> AttendanceLog:
         """Prépare un objet AttendanceLog sans l'insérer"""
-        log_time = TM20Parser.parse_datetime(record.time)
+        # L'heure envoyée par le terminal est une heure murale locale (naïve) :
+        # on la rend timezone-aware pour éviter un stockage naïf incohérent.
+        log_time = make_terminal_aware(TM20Parser.parse_datetime(record.time))
         if not log_time:
             log_time = timezone.now()
         

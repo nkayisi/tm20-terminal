@@ -184,7 +184,10 @@ TM20_SETTINGS = {
     'HEARTBEAT_INTERVAL': int(os.getenv('TM20_HEARTBEAT_INTERVAL', 30)),
     'CONNECTION_TIMEOUT': int(os.getenv('TM20_CONNECTION_TIMEOUT', 120)),
     'MAX_LOG_BATCH_SIZE': 40,
-    'REQUIRE_WHITELIST': os.getenv('TM20_REQUIRE_WHITELIST', '0') == '1',
+    'REQUIRE_WHITELIST': env_bool('TM20_REQUIRE_WHITELIST', '0'),
+    # Fuseau dans lequel les terminaux expriment l'heure murale.
+    # Vide => on utilise TIME_ZONE (UTC). Ex: 'Africa/Kigali' pour un site UTC+2.
+    'TERMINAL_TIMEZONE': os.getenv('TM20_TERMINAL_TIMEZONE', '') or TIME_ZONE,
 }
 
 LOG_DIR = Path(os.environ.get("LOG_DIR", "/tmp/logs"))

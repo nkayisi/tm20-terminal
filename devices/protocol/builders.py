@@ -2,8 +2,9 @@
 Builders pour construire les messages du protocole TM20
 """
 
-from datetime import datetime
 from typing import Any, Dict, List, Optional
+
+from .time_utils import terminal_now_str
 
 
 class ResponseBuilder:
@@ -13,8 +14,8 @@ class ResponseBuilder:
     
     @staticmethod
     def _now() -> str:
-        """Timestamp actuel formaté"""
-        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        """Timestamp actuel (heure murale terminal) formaté"""
+        return terminal_now_str()
     
     @classmethod
     def reg(
@@ -121,8 +122,8 @@ class CommandBuilder:
     
     @staticmethod
     def _now() -> str:
-        """Timestamp actuel formaté"""
-        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        """Timestamp actuel (heure murale terminal) formaté"""
+        return terminal_now_str()
     
     @classmethod
     def getuserlist(cls, stn: bool = True) -> dict:
