@@ -61,7 +61,7 @@ class DashboardAPIView(LoginRequiredMixin, View):
         realtime_metrics['connections']['active'] = connected_count
         
         return JsonResponse({
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': timezone.now().isoformat(),
             'terminals': {
                 'total': total_terminals,
                 'active': active_terminals,

@@ -66,11 +66,9 @@ class RegistrationHandler(BaseHandler):
             source='RegistrationHandler'
         )
         
-        # Construire la réponse
-        from datetime import datetime
+        # Construire la réponse (cloudtime généré par le builder en heure terminal)
         response = ResponseBuilder.reg(
             success=True,
-            cloudtime=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             nosenduser=True
         )
         
