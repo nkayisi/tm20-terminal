@@ -1,5 +1,4 @@
-{% extends "devices/dashboard/base.html" %} {% block title %}Vue d'ensemble{%
-endblock %} {% block content %}
+{% extends "devices/dashboard/base.html" %} {% block title %}Vue d'ensemble{% endblock %} {% block content %}
 <div class="space-y-6 animate-fade-in">
   <!-- Page Header -->
   <div>
@@ -187,7 +186,7 @@ endblock %} {% block content %}
           </div>
         </div>
         <a
-          href="{% url 'devices:dashboard:third_party_configs' %}"
+          href="{% url 'dashboard:third_party_configs' %}"
           class="block w-full px-4 py-2.5 text-center text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all duration-200 shadow-sm hover:shadow-md"
         >
           Gérer les Configurations
@@ -230,7 +229,7 @@ endblock %} {% block content %}
           </div>
         </div>
         <a
-          href="{% url 'devices:dashboard:schedules' %}"
+          href="{% url 'dashboard:schedules' %}"
           class="block w-full px-4 py-2.5 text-center text-sm font-medium text-white bg-gradient-to-r from-green-600 to-green-700 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-sm hover:shadow-md"
         >
           Gérer les Horaires
@@ -273,7 +272,7 @@ endblock %} {% block content %}
           </div>
         </div>
         <a
-          href="{% url 'devices:dashboard:user_sync' %}"
+          href="{% url 'dashboard:user_sync' %}"
           class="block w-full px-4 py-2.5 text-center text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-sm hover:shadow-md"
         >
           Synchroniser
@@ -316,7 +315,7 @@ endblock %} {% block content %}
           </div>
         </div>
         <a
-          href="{% url 'devices:dashboard:attendance_sync' %}"
+          href="{% url 'dashboard:attendance_sync' %}"
           class="block w-full px-4 py-2.5 text-center text-sm font-medium text-white bg-gradient-to-r from-yellow-600 to-yellow-700 rounded-lg hover:from-yellow-700 hover:to-yellow-800 transition-all duration-200 shadow-sm hover:shadow-md"
         >
           Gérer
@@ -421,7 +420,7 @@ endblock %} {% block content %}
           >
           -
           <a
-            href="{% url 'devices:dashboard:attendance_sync' %}"
+            href="{% url 'dashboard:attendance_sync' %}"
             class="underline hover:text-red-800"
             >Voir les détails</a
           >

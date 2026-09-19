@@ -123,10 +123,16 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
         # Désenregistrer du Device Manager
         if self.sn:
             await self._device_manager.unregister(self.sn)
-            
-            # Mettre à jour le statut en DB
+
+            # NE PAS toucher à `is_active` ici : ce champ est le drapeau
+            # d'administration « terminal géré/activé » (contrôlé manuellement),
+            # PAS l'état de connexion. L'état live est suivi via Redis
+            # (DeviceManager.get_connected_sns_from_redis). Une déconnexion WS
+            # (reconnexion, timeout heartbeat, redémarrage terminal) ne doit pas
+            # faire disparaître le terminal des pages de gestion. On se contente
+            # d'actualiser l'horodatage de dernière activité.
             from .services.registration import RegistrationService
-            await RegistrationService().update_status(self.sn, is_active=False)
+            await RegistrationService().update_last_seen(self.sn)
         
         # Mettre à jour les métriques
         self._metrics.update_active_connections(

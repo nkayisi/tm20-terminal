@@ -5,7 +5,6 @@ URLs v2 - Architecture refactorée
 from django.urls import path, include
 
 from . import views
-from .dashboard import urls as dashboard_urls
 from .api import urls as api_urls_v2
 
 app_name = 'devices'
@@ -21,7 +20,4 @@ urlpatterns = [
     
     # API REST v2 pour gestion avancée (services tiers, sync, horaires)
     path('api/', include(api_urls_v2, namespace='api')),
-    
-    # Dashboard
-    path('dashboard/', include(dashboard_urls, namespace='dashboard')),
 ]

@@ -1,14 +1,22 @@
 services:
-  # ==========================
-  # Django HTTP (Admin + API)
-  # ==========================
-  django-http:
+  # ==========================================================
+  # Django ASGI unifié  (HTTP: admin + dashboard + API  ET
+  #                      WebSocket: terminaux + dashboard temps réel)
+  # Un seul serveur ASGI (daphne, mono-process) : l'EventBus/DeviceManager
+  # en mémoire suffit au temps réel. Les terminaux gardent ws://IP:7788/ws/tm20/
+  # et l'admin/dashboard sont servis sur le MÊME port (7788).
+  # ==========================================================
+  django:
     build:
       context: .
       dockerfile: Dockerfile.prod
-    container_name: tm20_django_http
+    container_name: tm20_django
+    command: daphne -b 0.0.0.0 -p 7788 config.asgi:application
     ports:
-      - "8000:8000"
+      # Le port historique HTTP (8000) et le port terminaux (7788) pointent
+      # tous deux vers l'unique serveur ASGI : rien à reconfigurer côté clients.
+      - "7788:7788"
+      - "8000:7788"
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
       DEBUG: "0"
@@ -21,34 +29,6 @@ services:
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
-      - logs_volume:/app/logs
-    networks:
-      - tm20_network
-    depends_on:
-      - postgres
-      - redis
-    restart: unless-stopped
-
-  # ==========================
-  # Django ASGI (WebSocket)
-  # ==========================
-  django-ws:
-    build:
-      context: .
-      dockerfile: Dockerfile.prod
-    container_name: tm20_django_ws
-    command: daphne -b 0.0.0.0 -p 7788 config.asgi:application
-    ports:
-      - "7788:7788"
-    environment:
-      DJANGO_SETTINGS_MODULE: config.settings
-      DEBUG: "0"
-      LOG_DIR: /app/logs
-      DATABASE_URL: ${DATABASE_URL:-postgres://tm20_user:tm20_password@postgres:5432/tm20_db}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
-    volumes:
       - logs_volume:/app/logs
     networks:
       - tm20_network

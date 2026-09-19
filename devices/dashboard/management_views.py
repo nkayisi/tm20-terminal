@@ -17,6 +17,22 @@ from ..models import (
 )
 from .forms import ThirdPartyConfigForm, TerminalScheduleForm, UserSyncForm
 from ..services.user_sync_service import UserSyncService
+from ..core.device_manager import DeviceManager
+
+
+def _terminals_with_status():
+    """Terminaux gérés (is_active=True) annotés d'un statut de connexion live.
+
+    `is_active` est le drapeau d'administration (« terminal géré »). L'état
+    en ligne/hors-ligne, lui, est lu depuis Redis (DeviceManager) : source
+    fiable et partagée entre les processus HTTP et WebSocket. Chaque terminal
+    reçoit un attribut booléen `is_online`.
+    """
+    connected = set(DeviceManager.get_connected_sns_from_redis())
+    terminals = list(Terminal.objects.filter(is_active=True).order_by('sn'))
+    for t in terminals:
+        t.is_online = t.sn in connected
+    return terminals
 
 
 class ThirdPartyConfigsView(LoginRequiredMixin, View):
@@ -24,7 +40,7 @@ class ThirdPartyConfigsView(LoginRequiredMixin, View):
     
     def get(self, request):
         configs = ThirdPartyConfig.objects.all().order_by('-created_at')
-        terminals = Terminal.objects.filter(is_active=True).order_by('sn')
+        terminals = _terminals_with_status()
         form = ThirdPartyConfigForm()
         
         return render(request, 'devices/dashboard/third_party_configs.html', {
@@ -38,10 +54,10 @@ class ThirdPartyConfigsView(LoginRequiredMixin, View):
         if form.is_valid():
             config = form.save()
             messages.success(request, f'Configuration "{config.name}" créée avec succès.')
-            return redirect('devices:dashboard:third_party_configs')
+            return redirect('dashboard:third_party_configs')
         else:
             configs = ThirdPartyConfig.objects.all().order_by('-created_at')
-            terminals = Terminal.objects.filter(is_active=True).order_by('sn')
+            terminals = _terminals_with_status()
             messages.error(request, 'Erreur lors de la création de la configuration.')
             return render(request, 'devices/dashboard/third_party_configs.html', {
                 'configs': configs,
@@ -54,7 +70,7 @@ class TerminalSchedulesView(LoginRequiredMixin, View):
     """Vue de gestion des horaires de terminaux"""
     
     def get(self, request, terminal_id=None):
-        terminals = Terminal.objects.filter(is_active=True).order_by('sn')
+        terminals = _terminals_with_status()
         
         if terminal_id:
             terminal = get_object_or_404(Terminal, id=terminal_id)
@@ -101,14 +117,14 @@ class TerminalSchedulesView(LoginRequiredMixin, View):
             else:
                 messages.error(request, 'Erreur lors de la création de l\'horaire.')
         
-        return redirect('devices:dashboard:schedules_terminal', terminal_id=terminal_id)
+        return redirect('dashboard:schedules_terminal', terminal_id=terminal_id)
 
 
 class UserSyncView(LoginRequiredMixin, View):
     """Vue de synchronisation des utilisateurs"""
     
     def get(self, request):
-        terminals = Terminal.objects.filter(is_active=True).order_by('sn')
+        terminals = _terminals_with_status()
         configs = ThirdPartyConfig.objects.filter(is_active=True).order_by('name')
         
         mappings = TerminalThirdPartyMapping.objects.select_related(
@@ -116,19 +132,20 @@ class UserSyncView(LoginRequiredMixin, View):
         ).filter(is_active=True).order_by('terminal__sn')
         
         form = UserSyncForm(terminals=terminals, configs=configs)
-        
+
         return render(request, 'devices/dashboard/user_sync.html', {
             'terminals': terminals,
             'configs': configs,
             'mappings': mappings,
             'form': form,
+            'connected_count': sum(1 for t in terminals if t.is_online),
         })
     
     def post(self, request):
         from asgiref.sync import async_to_sync
         from ..services.user_sync_service import UserSyncService, UserSyncManager
         
-        terminals = Terminal.objects.filter(is_active=True).order_by('sn')
+        terminals = _terminals_with_status()
         configs = ThirdPartyConfig.objects.filter(is_active=True).order_by('name')
         
         action = request.POST.get('action', 'sync_from_service')
@@ -201,7 +218,7 @@ class UserSyncView(LoginRequiredMixin, View):
             else:
                 messages.error(request, 'Veuillez sélectionner un terminal.')
         
-        return redirect('devices:dashboard:user_sync')
+        return redirect('dashboard:user_sync')
 
 
 class AttendanceSyncView(LoginRequiredMixin, View):
@@ -209,7 +226,7 @@ class AttendanceSyncView(LoginRequiredMixin, View):
     
     def get(self, request):
         configs = ThirdPartyConfig.objects.filter(is_active=True).order_by('name')
-        terminals = Terminal.objects.filter(is_active=True).order_by('sn')
+        terminals = _terminals_with_status()
         
         stats = {
             'pending': AttendanceLog.objects.filter(sync_status='pending').count(),
@@ -263,7 +280,7 @@ class AttendanceSyncView(LoginRequiredMixin, View):
             config_id = request.POST.get('config_id')
             if not config_id:
                 messages.error(request, 'Configuration non spécifiée.')
-                return redirect('devices:dashboard:attendance_sync')
+                return redirect('dashboard:attendance_sync')
             
             try:
                 result = async_to_sync(AttendanceSyncManager.sync_config_attendance)(
@@ -293,7 +310,7 @@ class AttendanceSyncView(LoginRequiredMixin, View):
             except Exception as e:
                 messages.error(request, f'Erreur lors de la réinitialisation : {str(e)}')
         
-        return redirect('devices:dashboard:attendance_sync')
+        return redirect('dashboard:attendance_sync')
 
 
 class ManagementDashboardView(LoginRequiredMixin, View):
@@ -301,6 +318,7 @@ class ManagementDashboardView(LoginRequiredMixin, View):
     
     def get(self, request):
         terminals_count = Terminal.objects.filter(is_active=True).count()
+        connected_count = DeviceManager.get_connected_count_from_redis()
         configs_count = ThirdPartyConfig.objects.filter(is_active=True).count()
         schedules_count = TerminalSchedule.objects.filter(is_active=True).count()
         
@@ -313,6 +331,7 @@ class ManagementDashboardView(LoginRequiredMixin, View):
         
         return render(request, 'devices/dashboard/management.html', {
             'terminals_count': terminals_count,
+            'connected_count': connected_count,
             'configs_count': configs_count,
             'schedules_count': schedules_count,
             'pending_attendance': pending_attendance,

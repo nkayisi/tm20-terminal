@@ -464,10 +464,18 @@ Réel{% endblock %} {% block extra_css %}
       logs: [],
       events: [],
 
+      // Endpoints résolus côté serveur (aucune URL codée en dur)
+      api: {
+        data: "{% url 'dashboard:api' %}",
+        terminals: "{% url 'dashboard:terminals' %}",
+        logs: "{% url 'dashboard:logs' %}",
+      },
+
       init() {
         this.connectWebSocket();
         this.refreshAll();
-        setInterval(() => this.refreshAll(), 30000);
+        // Polling de secours (toujours fiable, y compris cross-process via Redis)
+        setInterval(() => this.refreshAll(), 10000);
       },
 
       connectWebSocket() {
@@ -487,7 +495,7 @@ Réel{% endblock %} {% block extra_css %}
           setTimeout(() => this.connectWebSocket(), 5000);
         };
 
-        this.ws.onerror = (error) => {
+        this.ws.onerror = () => {
           this.addEvent("error", "Erreur WebSocket");
         };
 
@@ -498,32 +506,144 @@ Réel{% endblock %} {% block extra_css %}
       },
 
       handleWebSocketMessage(data) {
-        if (data.type === "stats") {
-          this.stats = { ...this.stats, ...data.data };
-        } else if (data.type === "terminal_update") {
-          this.updateTerminal(data.data);
-        } else if (data.type === "new_log") {
-          this.addLog(data.data);
-        } else if (data.type === "event") {
-          this.addEvent(data.level || "info", data.message);
+        switch (data.type) {
+          case "metrics":
+            this.stats = { ...this.stats, ...this.mapMetrics(data.data || {}) };
+            break;
+          case "terminals":
+            // Le payload WS (connexions en mémoire) est partiel : on recharge
+            // la vue canonique via l'API REST.
+            this.refreshTerminals();
+            break;
+          case "event":
+            this.addEvent(this.eventLevel(data), data.message || data.event_type || "Événement");
+            this.scheduleRefresh();
+            break;
+          case "new_log":
+            this.addLog(this.normalizeLog(data.data || {}));
+            break;
+          // Compat éventuelle avec d'anciens messages
+          case "stats":
+            this.stats = { ...this.stats, ...(data.data || {}) };
+            break;
+          case "terminal_update":
+            this.updateTerminal(this.normalizeTerminal(data.data || {}));
+            break;
         }
+      },
+
+      eventLevel(data) {
+        const t = (data.event_type || "").toUpperCase();
+        if (t.includes("ERROR") || t.includes("TIMEOUT")) return "error";
+        if (t.includes("DISCONNECT")) return "warning";
+        if (t.includes("REGISTER") || t.includes("CONNECT")) return "success";
+        return data.level || "info";
+      },
+
+      // --- Normalisation des formats API -> vue ---
+      mapDashboardData(d) {
+        const s = {};
+        if (d.terminals) {
+          s.connected = d.terminals.connected ?? d.terminals.active ?? 0;
+          s.total = d.terminals.total ?? 0;
+        }
+        if (d.logs) {
+          s.logsToday = d.logs.today ?? 0;
+          s.logsRate = d.logs.rate_per_second ?? 0;
+        }
+        return { ...s, ...this.mapMetrics(d.metrics || {}) };
+      },
+
+      mapMetrics(m) {
+        const s = {};
+        if (m.connections) {
+          s.connected = m.connections.active ?? m.connections.total ?? this.stats.connected;
+        }
+        if (m.messages) {
+          s.messages = m.messages.received ?? 0;
+          s.messageRate = m.messages.rate_per_second ?? 0;
+        }
+        if (m.logs && m.logs.rate_per_second != null) {
+          s.logsRate = m.logs.rate_per_second;
+        }
+        if (m.latency) {
+          s.latency = Math.round(m.latency.message_avg_ms ?? 0);
+          s.latencyP95 = Math.round(m.latency.message_p95_ms ?? 0);
+        }
+        return s;
+      },
+
+      normalizeTerminal(t) {
+        return {
+          ...t,
+          connected: t.is_connected ?? t.connected ?? false,
+          users_count: t.used_users ?? t.users_count ?? 0,
+          logs_count: t.used_logs ?? t.logs_count ?? 0,
+        };
+      },
+
+      normalizeLog(l) {
+        return { ...l, terminal_sn: l.terminal_sn ?? l.sn };
       },
 
       async refreshAll() {
-        try {
-          const response = await fetch("/api/dashboard/data/");
-          const data = await response.json();
+        await Promise.all([
+          this.refreshStats(),
+          this.refreshTerminals(),
+          this.refreshLogs(),
+        ]);
+      },
 
-          if (data.stats) this.stats = { ...this.stats, ...data.stats };
-          if (data.terminals) this.terminals = data.terminals;
-          if (data.logs) this.logs = data.logs.slice(0, 20);
+      async refreshStats() {
+        try {
+          const res = await fetch(this.api.data);
+          if (!res.ok) return;
+          const data = await res.json();
+          this.stats = { ...this.stats, ...this.mapDashboardData(data) };
         } catch (error) {
-          console.error("Error refreshing data:", error);
+          console.error("Error refreshing stats:", error);
         }
       },
 
+      async refreshTerminals() {
+        try {
+          const res = await fetch(this.api.terminals);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (Array.isArray(data.terminals)) {
+            this.terminals = data.terminals.map((t) => this.normalizeTerminal(t));
+          }
+        } catch (error) {
+          console.error("Error refreshing terminals:", error);
+        }
+      },
+
+      async refreshLogs() {
+        try {
+          const res = await fetch(this.api.logs);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (Array.isArray(data.logs)) {
+            this.logs = data.logs.slice(0, 20).map((l) => this.normalizeLog(l));
+          }
+        } catch (error) {
+          console.error("Error refreshing logs:", error);
+        }
+      },
+
+      // Recharge groupée et anti-rebond (déclenchée par les événements WS)
+      scheduleRefresh() {
+        if (this._refreshTimer) return;
+        this._refreshTimer = setTimeout(() => {
+          this._refreshTimer = null;
+          this.refreshStats();
+          this.refreshTerminals();
+          this.refreshLogs();
+        }, 800);
+      },
+
       updateTerminal(terminal) {
-        const index = this.terminals.findIndex((t) => t.id === terminal.id);
+        const index = this.terminals.findIndex((t) => t.sn === terminal.sn);
         if (index >= 0) {
           this.terminals[index] = terminal;
         } else {
