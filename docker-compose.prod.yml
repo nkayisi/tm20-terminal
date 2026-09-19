@@ -3,20 +3,21 @@ services:
   # Django ASGI unifié  (HTTP: admin + dashboard + API  ET
   #                      WebSocket: terminaux + dashboard temps réel)
   # Un seul serveur ASGI (daphne, mono-process) : l'EventBus/DeviceManager
-  # en mémoire suffit au temps réel. Les terminaux gardent ws://IP:7788/ws/tm20/
-  # et l'admin/dashboard sont servis sur le MÊME port (7788).
+  # en mémoire suffit au temps réel.
+  # Écoute sur 8000 = port applicatif historique vers lequel le reverse-proxy
+  # (Dokploy/Traefik) route déjà le domaine : AUCUNE reconfiguration du proxy.
+  # Le port hôte 7788 est publié et redirigé vers ce même serveur pour les
+  # terminaux (ws://IP:7788/ws/tm20/).
   # ==========================================================
   django:
     build:
       context: .
       dockerfile: Dockerfile.prod
     container_name: tm20_django
-    command: daphne -b 0.0.0.0 -p 7788 config.asgi:application
+    command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
     ports:
-      # Le port historique HTTP (8000) et le port terminaux (7788) pointent
-      # tous deux vers l'unique serveur ASGI : rien à reconfigurer côté clients.
-      - "7788:7788"
-      - "8000:7788"
+      - "8000:8000"   # domaine / admin / dashboard (proxy -> 8000)
+      - "7788:8000"   # terminaux TM20 (ws://IP:7788 -> même serveur ASGI)
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
       DEBUG: "0"

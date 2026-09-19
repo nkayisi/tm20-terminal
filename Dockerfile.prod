@@ -85,9 +85,11 @@ USER appuser
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
 # Architecture unifiee : HTTP (admin + dashboard + API) ET WebSocket (terminaux
-# + dashboard temps reel) servis par un seul serveur ASGI sur le port 7788.
-# daphne = mono-process : l'EventBus/DeviceManager en memoire suffit au temps
-# reel (async, adapte a 100+ terminaux). Les terminaux gardent ws://IP:7788/ws/tm20/.
-EXPOSE 7788
+# + dashboard temps reel) servis par un seul serveur ASGI (daphne, mono-process
+# -> l'EventBus/DeviceManager en memoire suffit au temps reel, async, adapte a
+# 100+ terminaux). On ecoute sur 8000, le port applicatif historique attendu par
+# le reverse-proxy (Dokploy/Traefik). Les terminaux joignent le port 7788 publie
+# cote compose et redirige vers ce meme serveur (ws://IP:7788/ws/tm20/).
+EXPOSE 8000
 
-CMD ["daphne", "-b", "0.0.0.0", "-p", "7788", "config.asgi:application"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
