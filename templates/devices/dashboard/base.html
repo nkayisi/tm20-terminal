@@ -258,7 +258,7 @@
           @click.self=""
         >
           <a
-            href="{% url 'devices:dashboard:index' %}"
+            href="{% url 'dashboard:index' %}"
             class="sidebar-link flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-lg border-l-4 border-transparent {% if request.resolver_match.url_name == 'index' %}active{% endif %}"
           >
             <svg
@@ -278,7 +278,7 @@
           </a>
 
           <a
-            href="{% url 'devices:dashboard:management' %}"
+            href="{% url 'dashboard:management' %}"
             class="sidebar-link flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-lg border-l-4 border-transparent {% if request.resolver_match.url_name == 'management' %}active{% endif %}"
           >
             <svg
@@ -306,7 +306,7 @@
           </div>
 
           <a
-            href="{% url 'devices:dashboard:third_party_configs' %}"
+            href="{% url 'dashboard:third_party_configs' %}"
             class="sidebar-link flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-lg border-l-4 border-transparent {% if 'third_party' in request.resolver_match.url_name %}active{% endif %}"
           >
             <svg
@@ -326,7 +326,7 @@
           </a>
 
           <a
-            href="{% url 'devices:dashboard:user_sync' %}"
+            href="{% url 'dashboard:user_sync' %}"
             class="sidebar-link flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-lg border-l-4 border-transparent {% if 'user_sync' in request.resolver_match.url_name %}active{% endif %}"
           >
             <svg
@@ -346,7 +346,7 @@
           </a>
 
           <a
-            href="{% url 'devices:dashboard:attendance_sync' %}"
+            href="{% url 'dashboard:attendance_sync' %}"
             class="sidebar-link flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-lg border-l-4 border-transparent {% if 'attendance' in request.resolver_match.url_name %}active{% endif %}"
           >
             <svg
@@ -366,7 +366,7 @@
           </a>
 
           <a
-            href="{% url 'devices:dashboard:schedules' %}"
+            href="{% url 'dashboard:schedules' %}"
             class="sidebar-link flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 rounded-lg border-l-4 border-transparent {% if 'schedules' in request.resolver_match.url_name %}active{% endif %}"
           >
             <svg

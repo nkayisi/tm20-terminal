@@ -54,16 +54,21 @@
         >
           {% for terminal in terminals %}
           <a
-            href="{% url 'devices:dashboard:schedules_terminal' terminal.id %}"
+            href="{% url 'dashboard:schedules_terminal' terminal.id %}"
             class="block px-4 py-3 hover:bg-gray-50 transition-colors duration-150 {% if selected_terminal.id == terminal.id %}bg-primary-50 border-l-4 border-primary-600{% endif %}"
           >
             <div class="flex items-center justify-between">
               <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-900 truncate">
-                  {{ terminal.sn }}
+                <p class="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
+                  {% if terminal.is_online %}
+                  <span class="inline-block w-2 h-2 rounded-full bg-green-500" title="En ligne"></span>
+                  {% else %}
+                  <span class="inline-block w-2 h-2 rounded-full bg-gray-300" title="Hors ligne"></span>
+                  {% endif %}
+                  <span class="truncate">{{ terminal.sn }}</span>
                 </p>
-                <p class="text-xs text-gray-500 truncate">
-                  {{ terminal.model|default:"TM20" }}
+                <p class="text-xs {% if terminal.is_online %}text-green-600{% else %}text-gray-500{% endif %} truncate">
+                  {{ terminal.model|default:"TM20" }} · {% if terminal.is_online %}En ligne{% else %}Hors ligne{% endif %}
                 </p>
               </div>
               <span

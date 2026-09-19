@@ -54,6 +54,10 @@ Utilisateurs{% endblock %} {% block content %}
           <p class="mt-2 text-3xl font-bold text-gray-900">
             {{ terminals|length }}
           </p>
+          <p class="mt-1 text-xs font-medium flex items-center gap-1.5 {% if connected_count %}text-green-600{% else %}text-gray-400{% endif %}">
+            <span class="inline-block w-2 h-2 rounded-full {% if connected_count %}bg-green-500{% else %}bg-gray-300{% endif %}"></span>
+            {{ connected_count }} en ligne
+          </p>
         </div>
         <div
           class="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center"
@@ -251,7 +255,7 @@ Utilisateurs{% endblock %} {% block content %}
             <option value="">Sélectionner un terminal</option>
             {% for terminal in terminals %}
             <option value="{{ terminal.id }}">
-              {{ terminal.sn }} - {{ terminal.alias }}
+              {{ terminal.sn }} - {{ terminal.alias }} {% if terminal.is_online %}• En ligne{% else %}• Hors ligne{% endif %}
             </option>
             {% endfor %}
           </select>
