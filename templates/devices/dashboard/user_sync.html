@@ -50,13 +50,13 @@ Utilisateurs{% endblock %} {% block content %}
     >
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium text-gray-600">Terminaux Actifs</p>
-          <p class="mt-2 text-3xl font-bold text-gray-900">
-            {{ terminals|length }}
+          <p class="text-sm font-medium text-gray-600">Terminaux en ligne</p>
+          <p class="mt-2 text-3xl font-bold flex items-center gap-2 {% if connected_count %}text-green-600{% else %}text-gray-900{% endif %}">
+            <span class="inline-block w-2.5 h-2.5 rounded-full {% if connected_count %}bg-green-500{% else %}bg-gray-300{% endif %}"></span>
+            {{ connected_count }}
           </p>
-          <p class="mt-1 text-xs font-medium flex items-center gap-1.5 {% if connected_count %}text-green-600{% else %}text-gray-400{% endif %}">
-            <span class="inline-block w-2 h-2 rounded-full {% if connected_count %}bg-green-500{% else %}bg-gray-300{% endif %}"></span>
-            {{ connected_count }} en ligne
+          <p class="mt-1 text-xs text-gray-500">
+            sur {{ terminals|length }} enregistré{{ terminals|length|pluralize }}
           </p>
         </div>
         <div
