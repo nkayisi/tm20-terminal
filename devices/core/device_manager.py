@@ -4,6 +4,7 @@ Thread-safe, async-first, optimisé pour 100+ devices
 """
 
 import asyncio
+import time
 import logging
 import json
 from dataclasses import dataclass, field
@@ -113,6 +114,9 @@ class DeviceManager:
         self._event_bus = EventBus.get_instance()
         self._monitor_task: Optional[asyncio.Task] = None
         self._running = False
+        # Horodatage (monotonic) du dernier rafraîchissement de la présence
+        # Redis, pour throttler les réécritures déclenchées par les messages.
+        self._last_redis_refresh = 0.0
         
         # Métriques
         self._total_connections = 0
@@ -199,7 +203,12 @@ class DeviceManager:
             
             # Stocker dans Redis pour partage inter-processus
             self._update_redis_connections()
-        
+
+        # Garantir que la boucle de monitoring tourne : elle réécrit
+        # périodiquement la présence Redis pour qu'un terminal connecté mais
+        # silencieux n'expire pas du set (TTL) et reste vu « en ligne ».
+        self._ensure_monitor()
+
         # Émettre l'événement
         await self._event_bus.emit(
             EventType.DEVICE_REGISTERED,
@@ -267,6 +276,9 @@ class DeviceManager:
             if sn in self._connections:
                 self._connections[sn].touch()
                 self._total_messages += 1
+        # Renouvelle le TTL de la présence Redis au fil des messages du
+        # terminal (throttlé), pour ne pas laisser expirer un terminal actif.
+        self._maybe_refresh_redis()
     
     async def update_state(self, sn: str, state: DeviceState) -> None:
         """Met à jour l'état d'un terminal"""
@@ -367,6 +379,11 @@ class DeviceManager:
                         if elapsed > timeout:
                             unhealthy.append(sn)
                             conn.state = DeviceState.OFFLINE
+
+                # Renouvelle systématiquement la présence Redis à chaque tick :
+                # sans ça, un terminal connecté mais silencieux expirerait du
+                # set (TTL 120s) et disparaîtrait des « terminaux en ligne ».
+                self._maybe_refresh_redis(force=True)
                 
                 # Émettre les événements de timeout
                 for sn in unhealthy:
@@ -414,6 +431,25 @@ class DeviceManager:
         connections = await self.get_all_connections()
         return [conn.to_dict() for conn in connections]
     
+    def _ensure_monitor(self) -> None:
+        """Démarre paresseusement la boucle de monitoring si besoin."""
+        if self._monitor_task is not None and not self._monitor_task.done():
+            return
+        try:
+            self._running = True
+            self._monitor_task = asyncio.create_task(self._health_monitor())
+            logger.info("Health monitor démarré (refresh présence Redis)")
+        except RuntimeError:
+            # Pas de boucle asyncio en cours (appel en contexte sync) : ignoré.
+            self._monitor_task = None
+
+    def _maybe_refresh_redis(self, force: bool = False) -> None:
+        """Réécrit la présence Redis au plus une fois toutes les ~30s."""
+        now = time.monotonic()
+        if force or (now - self._last_redis_refresh) >= 30:
+            self._last_redis_refresh = now
+            self._update_redis_connections()
+
     def _update_redis_connections(self) -> None:
         """Met à jour la liste des connexions dans Redis (sync)"""
         try:
