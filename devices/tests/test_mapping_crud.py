@@ -78,6 +78,34 @@ class MappingCrudTests(TestCase):
         self.assertEqual(TerminalThirdPartyMapping.objects.count(), 1)
         self.assertContains(response, 'est déjà associé à')
 
+    def test_success_message_appears_once(self):
+        """base.html rend les messages ; une page qui les rendait aussi les
+        affichait en double, avec deux styles differents."""
+        self.client.post(self.url, self._payload())
+        html = self.client.get(self.url).content.decode()
+        self.assertEqual(html.count('Association enregistrée'), 1)
+
+    def test_duplicate_shows_a_single_explanation(self):
+        """Django ajoutait son propre message d'unicite par-dessus le notre,
+        et le formulaire poussait le sien dans `messages` : trois alertes pour
+        un seul probleme."""
+        self.client.post(self.url, self._payload())
+        html = self.client.post(self.url, self._payload()).content.decode()
+
+        self.assertEqual(html.count('est déjà associé à'), 1)
+        self.assertNotIn('existe déjà', html)
+
+    def test_invalid_form_reopens_the_modal_with_the_input(self):
+        """Sinon l'erreur s'affiche sur une modale fermee, saisie perdue."""
+        self.client.post(self.url, self._payload())
+        response = self.client.post(self.url, self._payload())
+
+        self.assertTrue(response.context['open_mapping_modal'])
+        self.assertEqual(
+            response.context['mapping_form']['terminal'].value(),
+            str(self.terminal.pk),
+        )
+
     def test_delete(self):
         self.client.post(self.url, self._payload())
         mapping = TerminalThirdPartyMapping.objects.get()

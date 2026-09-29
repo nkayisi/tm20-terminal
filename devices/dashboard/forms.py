@@ -193,6 +193,16 @@ class TerminalMappingForm(forms.ModelForm):
         self.fields['terminal'].empty_label = 'Choisir un terminal'
         self.fields['config'].empty_label = 'Choisir un service'
 
+    def validate_unique(self):
+        """`clean()` verifie deja (terminal, config), avec un message qui dit
+        quoi faire. Laisser Django verifier la meme contrainte ajouterait un
+        second message, generique, pour le meme probleme.
+
+        C'est la seule contrainte d'unicite du modele : rien d'autre n'est
+        perdu en la court-circuitant ici.
+        """
+        return
+
     def clean(self):
         """Traduit la contrainte d'unicite en message utile.
 

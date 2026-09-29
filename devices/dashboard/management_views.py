@@ -180,7 +180,7 @@ class TerminalSchedulesView(LoginRequiredMixin, View):
 class UserSyncView(LoginRequiredMixin, View):
     """Vue de synchronisation des utilisateurs"""
     
-    def get(self, request, mapping_form=None):
+    def get(self, request, mapping_form=None, open_mapping_modal=False):
         terminals = _terminals_with_status()
         configs = ThirdPartyConfig.objects.filter(is_active=True).order_by('name')
 
@@ -200,6 +200,8 @@ class UserSyncView(LoginRequiredMixin, View):
             'active_mappings_count': sum(1 for m in mappings if m.is_active),
             'form': form,
             'mapping_form': mapping_form or TerminalMappingForm(),
+            'open_mapping_modal': open_mapping_modal,
+            'mapping_form_id': request.POST.get('mapping_id', ''),
             'connected_count': sum(1 for t in terminals if t.is_online),
         })
     
@@ -303,11 +305,11 @@ class UserSyncView(LoginRequiredMixin, View):
 
         form = TerminalMappingForm(request.POST, instance=instance)
         if not form.is_valid():
-            # Le formulaire est re-rendu avec ses erreurs plutot que redirige :
-            # une redirection perdrait la saisie et le motif du refus.
-            for error in form.non_field_errors():
-                messages.error(request, error)
-            return self.get(request, mapping_form=form)
+            # Re-rendu plutot que redirection : une redirection perdrait la
+            # saisie et le motif du refus. L'erreur n'est affichee QUE dans la
+            # modale -- la pousser aussi dans `messages` la ferait apparaitre
+            # deux fois sur la meme page.
+            return self.get(request, mapping_form=form, open_mapping_modal=True)
 
         mapping = form.save()
         messages.success(

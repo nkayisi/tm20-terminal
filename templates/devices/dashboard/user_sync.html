@@ -3,35 +3,6 @@
 Utilisateurs{% endblock %} {% block content %}
 <div class="space-y-6 animate-fade-in">
   <!-- Messages Django -->
-  {% if messages %}
-  <div class="space-y-2">
-    {% for message in messages %}
-    <div
-      class="p-4 rounded-lg border {% if message.tags == 'success' %}bg-success-subtle border-success/30 text-success-text{% elif message.tags == 'error' %}bg-danger-subtle border-danger/30 text-danger-text{% else %}bg-info-subtle border-info/30 text-info-text{% endif %}"
-    >
-      <div class="flex items-center">
-        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-          {% if message.tags == 'success' %}
-          <path
-            fill-rule="evenodd"
-            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-            clip-rule="evenodd"
-          ></path>
-          {% else %}
-          <path
-            fill-rule="evenodd"
-            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-            clip-rule="evenodd"
-          ></path>
-          {% endif %}
-        </svg>
-        {{ message }}
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
   <!-- Page Header -->
   <div>
     <h1 class="text-3xl font-bold text-content">
@@ -476,7 +447,8 @@ Utilisateurs{% endblock %} {% block content %}
 <!-- Modale d'association. Une seule pour toute la page : les valeurs sont
      injectees depuis les attributs de la ligne, plutot que de generer N
      modales identiques dans le document. -->
-<div id="mappingModal" data-modal class="hidden fixed inset-0 z-50 overflow-y-auto">
+<div id="mappingModal" data-modal
+     class="{% if not open_mapping_modal %}hidden {% endif %}fixed inset-0 z-50 overflow-y-auto">
   <div class="flex min-h-full items-center justify-center p-4">
     <div class="fixed inset-0 bg-black/50" data-modal-backdrop></div>
     <div class="relative w-full max-w-lg card shadow-3" role="dialog" aria-modal="true"
@@ -484,7 +456,7 @@ Utilisateurs{% endblock %} {% block content %}
       <form method="post" class="form">
         {% csrf_token %}
         <input type="hidden" name="action" value="save_mapping" />
-        <input type="hidden" name="mapping_id" id="mappingId" value="" />
+        <input type="hidden" name="mapping_id" id="mappingId" value="{{ mapping_form_id }}" />
 
         <div class="flex items-center justify-between border-b border-border px-6 py-4">
           <h3 class="text-lg font-semibold" id="mappingModalTitle">Nouvelle association</h3>
