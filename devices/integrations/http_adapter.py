@@ -301,16 +301,14 @@ class HTTPAdapter(ThirdPartyAdapter):
         try:
             url = self.build_url(self.config.attendance_endpoint)
 
-            # Forme du corps, imposee par les services destinataires :
-            #   - un seul pointage  -> l'objet nu, sans enveloppe ;
-            #   - deux ou plus      -> {"attendances": [ ... ]}.
-            #
-            # La structure depend donc du nombre d'elements du lot, et bascule
-            # d'elle-meme selon ce qui s'est accumule depuis la derniere
-            # synchronisation. Un recepteur doit gerer les deux formes pour la
-            # meme operation : c'est intentionnel ici, pas un oubli.
-            records = [att.to_dict() for att in attendance_list]
-            payload = records[0] if len(records) == 1 else {'attendances': records}
+            # Corps toujours de la meme forme : { "attendances": [ ... ] },
+            # y compris pour un pointage unique, ou le tableau n'en contient
+            # qu'un. Faire dependre la structure de la taille du lot obligerait
+            # le recepteur a gerer deux cas pour la meme operation, et le
+            # basculement se produirait tout seul selon ce qui s'est accumule
+            # depuis la derniere synchronisation -- donc rarement en test, et
+            # un jour en production.
+            payload = {'attendances': [att.to_dict() for att in attendance_list]}
 
             response = await self._request('POST', url, json=payload)
 

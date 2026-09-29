@@ -1,11 +1,12 @@
 """
 Forme du corps envoyé aux services tiers pour les pointages.
 
-Le contrat attendu par les destinataires n'est pas uniforme : un pointage seul
-part sans enveloppe, deux ou plus partent dans un objet sous la clé
-`attendances`. La structure dépend donc de la taille du lot, et bascule d'une
-synchronisation à l'autre selon ce qui s'est accumulé. Ces tests verrouillent
-les deux formes et la frontière exacte entre elles.
+Le contrat est volontairement uniforme : toujours un objet portant la clé
+`attendances`, dont la valeur est un tableau — y compris quand il ne contient
+qu'un seul pointage. C'est le cas le plus fréquent en exploitation (la
+synchronisation tourne chaque minute, il est rare que deux personnes badgent
+dans le même intervalle), donc celui qu'une forme variable ferait diverger du
+cas groupé sans qu'on le remarque.
 """
 
 import asyncio
@@ -53,36 +54,37 @@ class AttendancePayloadShapeTests(TestCase):
 
         return req.await_args.kwargs['json']
 
-    def test_single_record_is_sent_bare(self):
+    def test_single_record_is_still_wrapped_in_a_list(self):
+        """Le cas courant : un pointage seul, mais dans un tableau."""
         payload = self._send(1)
 
-        self.assertIsInstance(payload, dict)
-        self.assertNotIn('attendances', payload)
-        self.assertEqual(payload['log_id'], 1000)
-        self.assertEqual(payload['terminal_sn'], 'ZYTJ20128568')
+        self.assertEqual(list(payload), ['attendances'])
+        self.assertIsInstance(payload['attendances'], list)
+        self.assertEqual(len(payload['attendances']), 1)
+        self.assertEqual(payload['attendances'][0]['log_id'], 1000)
 
-    def test_several_records_are_wrapped(self):
+    def test_several_records_share_the_same_shape(self):
         payload = self._send(3)
 
-        self.assertIsInstance(payload, dict)
         self.assertEqual(list(payload), ['attendances'])
-        self.assertEqual(len(payload['attendances']), 3)
         self.assertEqual(
             [r['log_id'] for r in payload['attendances']], [1000, 1001, 1002]
         )
 
-    def test_two_is_already_the_wrapped_form(self):
-        """La bascule se fait à deux, pas à trois : c'est la frontière utile."""
-        self.assertIn('attendances', self._send(2))
+    def test_shape_does_not_depend_on_batch_size(self):
+        """Le point de tout l'exercice : aucune bascule selon la taille du lot."""
+        shapes = {tuple(self._send(n)) for n in (1, 2, 5)}
+        self.assertEqual(shapes, {('attendances',)})
 
-    def test_records_keep_the_same_fields_in_both_shapes(self):
-        """Seule l'enveloppe change ; un pointage garde la même structure."""
-        alone = self._send(1)
-        wrapped = self._send(2)['attendances'][0]
+    def test_records_keep_the_same_fields_whatever_the_count(self):
+        alone = self._send(1)['attendances'][0]
+        among_others = self._send(3)['attendances'][0]
 
-        self.assertEqual(set(alone), set(wrapped))
+        self.assertEqual(set(alone), set(among_others))
+        self.assertEqual(alone, among_others)
 
     def test_empty_list_sends_nothing(self):
+        """Aucune requête pour un lot vide : le court-circuit est en amont."""
         adapter = HTTPAdapter(self.config)
         with patch.object(HTTPAdapter, '_request', new=AsyncMock()) as req:
             result = asyncio.run(adapter.send_attendance([]))
