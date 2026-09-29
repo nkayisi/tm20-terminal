@@ -3,6 +3,7 @@ Vues de gestion pour le dashboard
 Configurations tiers, horaires, synchronisation
 """
 
+from django.db.models import Count
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views import View
 from django.contrib import messages
@@ -29,7 +30,14 @@ def _terminals_with_status():
     reçoit un attribut booléen `is_online`.
     """
     connected = set(DeviceManager.get_connected_sns_from_redis())
-    terminals = list(Terminal.objects.filter(is_active=True).order_by('sn'))
+    # `schedules_count` est annote ici : le template l'affiche dans une
+    # boucle, et un `terminal.schedules.count` y declenchait un COUNT par
+    # terminal a chaque rendu.
+    terminals = list(
+        Terminal.objects.filter(is_active=True)
+        .annotate(schedules_count=Count('schedules'))
+        .order_by('sn')
+    )
     for t in terminals:
         t.is_online = t.sn in connected
     return terminals

@@ -74,7 +74,7 @@
               <span
                 class="inline-flex items-center justify-center w-6 h-6 text-xs font-medium rounded-full {% if selected_terminal.id == terminal.id %}bg-primary-600 text-white{% else %}bg-gray-100 text-gray-600{% endif %}"
               >
-                {{ terminal.schedules.count }}
+                {{ terminal.schedules_count }}
               </span>
             </div>
           </a>
@@ -305,6 +305,7 @@
             {% endfor %}
           </div>
         </div>
+      {% else %}
         <div
           class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center"
         >
@@ -422,6 +423,43 @@
               >{{ form.tolerance_minutes.label }}</label
             >
             {{ form.tolerance_minutes }}
+          </div>
+
+          {% comment %}
+          Periode de validite : pilote `TerminalSchedule.is_currently_effective()`.
+          Laisser vide = horaire valable sans limite de date.
+          {% endcomment %}
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >{{ form.effective_from.label }}</label
+              >
+              {{ form.effective_from }}
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >{{ form.effective_until.label }}</label
+              >
+              {{ form.effective_until }}
+            </div>
+          </div>
+          <p class="text-xs text-gray-500 -mt-2">
+            Laissez ces dates vides pour un horaire valable sans limite.
+          </p>
+
+          {% comment %}
+          `is_active` fait partie des champs du formulaire. Tant que la case
+          n'etait pas rendue, chaque POST la recevait comme decochee et tout
+          horaire cree depuis cette modale naissait inactif -- donc ignore par
+          `ScheduleManager.get_active_schedule`, qui filtre sur is_active=True.
+          {% endcomment %}
+          <div class="flex items-center pt-1">
+            {{ form.is_active }}
+            <label
+              for="{{ form.is_active.id_for_label }}"
+              class="ml-2 text-sm font-medium text-gray-700"
+              >{{ form.is_active.label }}</label
+            >
           </div>
         </div>
 

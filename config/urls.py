@@ -20,11 +20,22 @@ def root_redirect(request):
 
 class CustomLoginView(auth_views.LoginView):
     """Vue de login personnalisée avec redirection automatique"""
-    
+
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
             return redirect('/dashboard/')
         return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        """Honore la case « Se souvenir de moi » du formulaire.
+
+        La case existait dans le gabarit et était postée, mais rien ne la
+        lisait : la session durait `SESSION_COOKIE_AGE` dans tous les cas.
+        Décochée, la session expire désormais à la fermeture du navigateur.
+        """
+        if not self.request.POST.get('remember'):
+            self.request.session.set_expiry(0)
+        return super().form_valid(form)
 
 urlpatterns = [
     # Authentication

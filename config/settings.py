@@ -93,6 +93,20 @@ TEMPLATES = [
     },
 ]
 
+# Depuis Django 4.1, le loader de templates en cache est actif MEME en DEBUG :
+# `runserver` s'en accommode grace a son autoreloader, qui surveille aussi les
+# gabarits. Ce projet tourne sous uvicorn/daphne, dont le `--reload` ne
+# surveille que les `.py` : une modification de template restait invisible
+# jusqu'au redemarrage du conteneur. En developpement, on declare donc les
+# loaders sans cache. APP_DIRS doit passer a False : Django refuse que les deux
+# soient definis simultanement.
+if DEBUG:
+    TEMPLATES[0]['APP_DIRS'] = False
+    TEMPLATES[0]['OPTIONS']['loaders'] = [
+        'django.template.loaders.filesystem.Loader',
+        'django.template.loaders.app_directories.Loader',
+    ]
+
 WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
@@ -306,7 +320,9 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 
 # Authentication settings
-LOGIN_URL = '/'
+# La vue de login est sur /login/. Avec '/', `root_redirect` rebondit et
+# perd le `?next=` que Django vient d'ajouter.
+LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 
