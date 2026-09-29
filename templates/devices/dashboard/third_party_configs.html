@@ -41,7 +41,8 @@
       </p>
     </div>
     <button
-      onclick="document.getElementById('addConfigModal').classList.remove('hidden')"
+      type="button"
+      data-open-modal="addConfigModal"
       class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all duration-200 shadow-sm hover:shadow-md"
     >
       <svg
@@ -66,11 +67,11 @@
   <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
     {% for config in configs %}
     <div
-      class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden card-hover"
+      class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden card-hover flex flex-col"
     >
-      <div class="p-6">
+      <div class="p-6 flex-1">
         <div class="flex items-start justify-between mb-4">
-          <div class="flex-1">
+          <div class="flex-1 min-w-0">
             <h3 class="text-lg font-semibold text-gray-900">
               {{ config.name }}
             </h3>
@@ -79,13 +80,13 @@
             </p>
           </div>
           <span
-            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if config.is_active %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}"
+            class="ml-3 shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if config.is_active %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}"
           >
             {% if config.is_active %}Actif{% else %}Inactif{% endif %}
           </span>
         </div>
 
-        <div class="space-y-2 mb-4">
+        <div class="space-y-2">
           {% if config.users_endpoint %}
           <div class="flex items-center text-sm text-gray-600">
             <svg
@@ -123,6 +124,31 @@
           {% endif %}
         </div>
       </div>
+
+      <div
+        class="flex justify-end px-6 py-3 border-t border-gray-100 bg-gray-50"
+      >
+        <button
+          type="button"
+          data-open-modal="editConfigModal-{{ config.id }}"
+          class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-primary-700 hover:border-primary-300 transition-colors"
+        >
+          <svg
+            class="w-4 h-4 mr-1.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+            ></path>
+          </svg>
+          Modifier
+        </button>
+      </div>
     </div>
     {% endfor %}
   </div>
@@ -148,7 +174,8 @@
       Créez votre première configuration de service tiers pour commencer.
     </p>
     <button
-      onclick="document.getElementById('addConfigModal').classList.remove('hidden')"
+      type="button"
+      data-open-modal="addConfigModal"
       class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all duration-200"
     >
       <svg
@@ -177,7 +204,7 @@
   >
     <div
       class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
-      onclick="document.getElementById('addConfigModal').classList.add('hidden')"
+      data-close-modal="addConfigModal"
     ></div>
 
     <div
@@ -191,7 +218,7 @@
           </h3>
           <button
             type="button"
-            onclick="document.getElementById('addConfigModal').classList.add('hidden')"
+            data-close-modal="addConfigModal"
             class="text-gray-400 hover:text-gray-500"
           >
             <svg
@@ -210,77 +237,12 @@
           </button>
         </div>
 
-        <div class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
-                >{{ form.name.label }}</label
-              >
-              {{ form.name }} {% if form.name.errors %}
-              <p class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</p>
-              {% endif %}
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
-                >{{ form.base_url.label }}</label
-              >
-              {{ form.base_url }} {% if form.base_url.errors %}
-              <p class="mt-1 text-sm text-red-600">
-                {{ form.base_url.errors.0 }}
-              </p>
-              {% endif %}
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >{{ form.description.label }}</label
-            >
-            {{ form.description }}
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
-                >{{ form.users_endpoint.label }}</label
-              >
-              {{ form.users_endpoint }}
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
-                >{{ form.attendance_endpoint.label }}</label
-              >
-              {{ form.attendance_endpoint }}
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
-                >{{ form.auth_type.label }}</label
-              >
-              {{ form.auth_type }}
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
-                >{{ form.auth_token.label }}</label
-              >
-              {{ form.auth_token }}
-            </div>
-          </div>
-
-          <div class="flex items-center">
-            {{ form.is_active }}
-            <label class="ml-2 text-sm font-medium text-gray-700"
-              >{{ form.is_active.label }}</label
-            >
-          </div>
-        </div>
+        {% include "devices/dashboard/partials/_third_party_config_fields.html" with form=form %}
 
         <div class="flex justify-end mt-6 space-x-3">
           <button
             type="button"
-            onclick="document.getElementById('addConfigModal').classList.add('hidden')"
+            data-close-modal="addConfigModal"
             class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             Annuler
@@ -296,4 +258,115 @@
     </div>
   </div>
 </div>
+
+<!-- Edit Config Modals -->
+{% for config in configs %}
+<div
+  id="editConfigModal-{{ config.id }}"
+  class="hidden fixed inset-0 z-50 overflow-y-auto"
+>
+  <div
+    class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0"
+  >
+    <div
+      class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+      data-close-modal="editConfigModal-{{ config.id }}"
+    ></div>
+
+    <div
+      class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full"
+    >
+      <form
+        method="post"
+        action="{% url 'dashboard:third_party_config_edit' config.id %}"
+        class="p-6"
+      >
+        {% csrf_token %}
+        <div class="flex items-start justify-between mb-6">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900">
+              Modifier la configuration
+            </h3>
+            <p class="mt-1 text-sm text-gray-500">{{ config.name }}</p>
+          </div>
+          <button
+            type="button"
+            data-close-modal="editConfigModal-{{ config.id }}"
+            class="text-gray-400 hover:text-gray-500"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              ></path>
+            </svg>
+          </button>
+        </div>
+
+        {% include "devices/dashboard/partials/_third_party_config_fields.html" with form=config.edit_form %}
+
+        <div class="flex justify-end mt-6 space-x-3">
+          <button
+            type="button"
+            data-close-modal="editConfigModal-{{ config.id }}"
+            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            Annuler
+          </button>
+          <button
+            type="submit"
+            class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800"
+          >
+            Enregistrer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %} {% endblock %} {% block extra_js %}
+<script>
+  (function () {
+    function setModal(id, visible) {
+      const modal = document.getElementById(id);
+      if (!modal) return;
+      modal.classList.toggle("hidden", !visible);
+      document.body.classList.toggle("overflow-hidden", visible);
+    }
+
+    document.addEventListener("click", function (event) {
+      const opener = event.target.closest("[data-open-modal]");
+      if (opener) {
+        setModal(opener.dataset.openModal, true);
+        return;
+      }
+      const closer = event.target.closest("[data-close-modal]");
+      if (closer) {
+        setModal(closer.dataset.closeModal, false);
+      }
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key !== "Escape") return;
+      document
+        .querySelectorAll('[id^="editConfigModal-"], #addConfigModal')
+        .forEach(function (modal) {
+          if (!modal.classList.contains("hidden")) setModal(modal.id, false);
+        });
+    });
+
+    // Réouvre la modale concernée quand une soumission a échoué,
+    // pour que les erreurs de validation restent visibles.
+    {% if open_modal %}
+    setModal("{{ open_modal|escapejs }}", true);
+    {% endif %}
+  })();
+</script>
 {% endblock %}

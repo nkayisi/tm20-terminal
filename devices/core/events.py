@@ -127,6 +127,20 @@ class EventBus:
             except ValueError:
                 pass
     
+    def unsubscribe_all(self, handler: Callable[[Event], Coroutine]) -> None:
+        """Désabonne un handler global.
+
+        Indispensable pour tout abonne a duree de vie courte (une connexion
+        WebSocket dashboard) : sans cela l'EventBus, qui est un singleton,
+        accumule les handlers morts et rediffuse chaque evenement autant de
+        fois qu'il y a eu de connexions depuis le demarrage.
+        """
+        try:
+            self._global_subscribers.remove(handler)
+            logger.debug("Global handler unsubscribed")
+        except ValueError:
+            pass
+    
     async def publish(self, event: Event) -> None:
         """Publie un événement (async)"""
         await self._event_queue.put(event)

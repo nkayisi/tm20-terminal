@@ -51,9 +51,10 @@ class MessageValidator:
         if not isinstance(message, dict):
             raise ValidationError("Message must be a dictionary", code='INVALID_TYPE')
         
-        # Déterminer le type de message
-        cmd = message.get('cmd', '').lower()
-        ret = message.get('ret', '').lower()
+        # Déterminer le type de message. Les valeurs peuvent arriver entourees
+        # d'espaces sur certains firmwares (doc section 6.4) : on les rogne.
+        cmd = str(message.get('cmd') or '').strip().lower()
+        ret = str(message.get('ret') or '').strip().lower()
         
         if not cmd and not ret:
             raise ValidationError(
@@ -93,9 +94,16 @@ class MessageValidator:
         
         return True
     
+    # Reponses documentees SANS champ `result` : la spec donne pour `gettime`
+    # `{"ret":"gettime","sn":...,"time":...}` (doc section S26).
+    RESPONSES_WITHOUT_RESULT: Set[str] = {'gettime'}
+
     @classmethod
     def _validate_response(cls, ret: str, message: Dict[str, Any]) -> bool:
         """Valide une réponse"""
+        if ret in cls.RESPONSES_WITHOUT_RESULT:
+            return True
+
         # Les réponses doivent avoir 'result'
         if 'result' not in message:
             raise ValidationError(

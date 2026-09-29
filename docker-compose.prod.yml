@@ -14,7 +14,14 @@ services:
       context: .
       dockerfile: Dockerfile.prod
     container_name: tm20_django
-    command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
+    # Les terminaux TM20 ne repondent pas aux frames ping WebSocket. Avec les
+    # defauts de daphne (--ping-interval 20 / --ping-timeout 30), autobahn coupe
+    # la connexion ~50 s apres le dernier message (close 1006) et le terminal
+    # reconnecte en boucle. --ping-timeout 0 desactive cette coupure ; le ping
+    # periodique est conserve pour maintenir NAT et reverse-proxy ouverts.
+    # La detection des connexions mortes reste assuree cote applicatif par
+    # TM20_CONNECTION_TIMEOUT (voir config/settings.py).
+    command: daphne -b 0.0.0.0 -p 8000 --ping-interval 30 --ping-timeout 0 config.asgi:application
     ports:
       - "8000:8000"   # domaine / admin / dashboard (proxy -> 8000)
       - "7788:8000"   # terminaux TM20 (ws://IP:7788 -> même serveur ASGI)
@@ -27,6 +34,13 @@ services:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost,http://127.0.0.1}
+      # Terminaux TM20. Sans ces lignes, les variables du `.env` de production
+      # n'atteignent jamais le conteneur : .dockerignore exclut `.env` de
+      # l'image et ce compose n'utilise pas `env_file`.
+      TM20_TERMINAL_TIMEZONE: ${TM20_TERMINAL_TIMEZONE:-UTC}
+      TM20_HEARTBEAT_INTERVAL: ${TM20_HEARTBEAT_INTERVAL:-30}
+      TM20_CONNECTION_TIMEOUT: ${TM20_CONNECTION_TIMEOUT:-600}
+      TM20_REQUIRE_WHITELIST: ${TM20_REQUIRE_WHITELIST:-0}
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
@@ -55,6 +69,7 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
       C_FORCE_ROOT: "true"
+      TM20_TERMINAL_TIMEZONE: ${TM20_TERMINAL_TIMEZONE:-UTC}
     volumes:
       - logs_volume:/app/logs
     networks:
@@ -80,6 +95,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgres://tm20_user:tm20_password@postgres:5432/tm20_db}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      TM20_TERMINAL_TIMEZONE: ${TM20_TERMINAL_TIMEZONE:-UTC}
     volumes:
       - logs_volume:/app/logs
     networks:

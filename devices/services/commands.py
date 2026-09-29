@@ -24,6 +24,52 @@ class CommandService:
         self._event_bus = EventBus.get_instance()
         self._metrics = MetricsCollector.get_instance()
     
+    @staticmethod
+    def is_connected(sn: str) -> bool:
+        """Le terminal a-t-il une connexion WebSocket active ?
+
+        La source de verite est Redis : le pool en memoire du DeviceManager
+        n'existe que dans le process ASGI qui porte les WebSockets, jamais
+        dans un process HTTP ou un worker Celery.
+        """
+        from ..core.device_manager import DeviceManager
+        return sn in DeviceManager.get_connected_sns_from_redis()
+
+    @staticmethod
+    def dispatch(sn: str, payload: dict) -> bool:
+        """Envoie une commande au terminal via la couche Channels.
+
+        C'est le seul chemin valable depuis un contexte synchrone (vue HTTP,
+        tache Celery) : le consumer a rejoint le groupe `terminal_<sn>` a son
+        enregistrement et expose le handler `send_command`. Passer par
+        `DeviceManager.send_to_device` depuis ces contextes ne fonctionne pas
+        (singleton en memoire d'un autre process, et boucle asyncio distincte).
+
+        Retourne True si la commande a ete remise a un terminal connecte.
+        """
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+
+        if not CommandService.is_connected(sn):
+            logger.info(f"[{sn}] Terminal hors ligne, commande mise en file")
+            return False
+
+        channel_layer = get_channel_layer()
+        if channel_layer is None:
+            logger.error("Channel layer indisponible, commande mise en file")
+            return False
+
+        try:
+            async_to_sync(channel_layer.group_send)(
+                f'terminal_{sn}',
+                {'type': 'send_command', 'command': payload},
+            )
+            logger.info(f"[{sn}] Commande {payload.get('cmd')} transmise")
+            return True
+        except Exception as e:
+            logger.error(f"[{sn}] Echec transmission de la commande: {e}")
+            return False
+
     @sync_to_async
     def queue(
         self,

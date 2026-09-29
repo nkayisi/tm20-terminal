@@ -65,10 +65,10 @@
                   {% else %}
                   <span class="inline-block w-2 h-2 rounded-full bg-gray-300" title="Hors ligne"></span>
                   {% endif %}
-                  <span class="truncate">{{ terminal.sn }}</span>
+                  <span class="truncate" title="{{ terminal.sn }}">{{ terminal.short_label }}</span>
                 </p>
                 <p class="text-xs {% if terminal.is_online %}text-green-600{% else %}text-gray-500{% endif %} truncate">
-                  {{ terminal.model|default:"TM20" }} · {% if terminal.is_online %}En ligne{% else %}Hors ligne{% endif %}
+                  {% if terminal.name %}{{ terminal.sn }} · {% endif %}{{ terminal.model|default:"TM20" }}{% if terminal.location %} · {{ terminal.location }}{% endif %} · {% if terminal.is_online %}En ligne{% else %}Hors ligne{% endif %}
                 </p>
               </div>
               <span
@@ -111,7 +111,7 @@
             class="px-6 py-4 border-b border-gray-200 flex items-center justify-between"
           >
             <h3 class="text-lg font-semibold text-gray-900">
-              Horaires de {{ selected_terminal.sn }}
+              Horaires de {{ selected_terminal.short_label }}
             </h3>
             <button
               onclick="document.getElementById('addScheduleModal').classList.remove('hidden')"

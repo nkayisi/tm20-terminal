@@ -27,7 +27,8 @@ class AttendanceHandler(BaseHandler):
         self,
         message: Dict[str, Any],
         terminal: Optional[Terminal] = None,
-        sn: Optional[str] = None
+        sn: Optional[str] = None,
+        **context: Any
     ) -> HandlerResult:
         """Traite un message sendlog"""
         
@@ -51,10 +52,17 @@ class AttendanceHandler(BaseHandler):
         # Mettre à jour last_seen
         await self._registration.update_last_seen(terminal.sn)
         
-        # Construire la réponse
+        # Construire la réponse.
+        #
+        # `count` est un ECHO du nombre d'enregistrements recus (doc section
+        # T2 : « count: 2  // added 2019-03-27 (echo) »), pas le nombre de
+        # lignes inserees. Renvoyer `processed` ferait croire au terminal que
+        # rien n'a ete accepte des que la deduplication ecarte tout le lot
+        # (retransmission), et un firmware qui avance son pointeur de lecture
+        # sur cette valeur retransmettrait alors indefiniment le meme lot.
         response = ResponseBuilder.sendlog(
             success=True,
-            count=processed,
+            count=len(log_msg.records),
             logindex=log_msg.logindex,
             access=1 if access_granted else 0
         )

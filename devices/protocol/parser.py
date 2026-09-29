@@ -49,8 +49,13 @@ class TM20Parser:
     
     @staticmethod
     def get_command_type(message: Dict[str, Any]) -> Optional[str]:
-        """Extrait le type de commande (cmd ou ret)"""
-        return message.get('cmd', message.get('ret', '')).lower() or None
+        """Extrait le type de commande (cmd ou ret).
+
+        Les terminaux reels emettent parfois des valeurs entourees d'espaces
+        (doc section 6.4, ex: `"ret": " getuserinfo "`) : on les rogne.
+        """
+        raw = message.get('cmd') or message.get('ret') or ''
+        return str(raw).strip().lower() or None
     
     @staticmethod
     def is_response(message: Dict[str, Any]) -> bool:
@@ -130,16 +135,38 @@ class TM20Parser:
             record=message.get('record', ''),
         )
     
+    # Formats acceptes, du plus courant au plus permissif. Le second couvre
+    # les dates sans zero de tete ("2018-11-1", doc section 6.2-18) et les
+    # horodatages sans les secondes, vus sur certains firmwares.
+    DATETIME_FORMATS = (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d",
+    )
+
     @staticmethod
     def parse_datetime(time_str: str) -> Optional[datetime]:
-        """Parse une date/heure du protocole TM20"""
+        """Parse une date/heure du protocole TM20.
+
+        Les valeurs recues peuvent etre entourees d'espaces (doc section 6.4)
+        et les dates non paddees ("2018-11-1") : strptime accepte deja les
+        composants non paddes, il suffit de rogner la chaine.
+        """
         if not time_str:
             return None
-        try:
-            return datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            logger.warning(f"Invalid datetime format: {time_str}")
+
+        cleaned = str(time_str).strip()
+        if not cleaned:
             return None
+
+        for fmt in TM20Parser.DATETIME_FORMATS:
+            try:
+                return datetime.strptime(cleaned, fmt)
+            except ValueError:
+                continue
+
+        logger.warning(f"Invalid datetime format: {time_str!r}")
+        return None
     
     @staticmethod
     def format_datetime(dt: datetime = None) -> str:

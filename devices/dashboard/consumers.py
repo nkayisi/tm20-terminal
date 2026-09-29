@@ -3,18 +3,67 @@ Consumer WebSocket pour le dashboard temps réel
 Pousse les mises à jour aux clients du dashboard
 """
 
-import asyncio
 import json
 import logging
-from typing import Set
 
 from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.layers import get_channel_layer
 
-from ..core.events import EventBus, Event, EventType
+from ..core.events import EventBus, Event
 from ..core.device_manager import DeviceManager
 from ..core.metrics import MetricsCollector
 
 logger = logging.getLogger('devices.dashboard')
+
+# Groupe Channels de diffusion du dashboard.
+DASHBOARD_GROUP = 'dashboard_updates'
+
+# Un SEUL abonne au bus pour tout le process.
+#
+# Abonner `self._handle_event` par connexion faisait diffuser chaque
+# evenement une fois par abonne, et chaque diffusion touchait tous les
+# membres du groupe : K dashboards ouverts => K x K trames par evenement
+# (flux d'activite duplique, `scheduleRefresh()` declenche autant de fois).
+# Le desabonnement au `disconnect` reglait les handlers morts, pas cette
+# duplication entre connexions vivantes.
+_broadcast_subscribed = False
+
+
+async def _broadcast_event(event: Event) -> None:
+    """Relaie un evenement du bus vers le groupe dashboard, une seule fois."""
+    layer = get_channel_layer()
+    if layer is None:
+        return
+
+    await layer.group_send(
+        DASHBOARD_GROUP,
+        {
+            'type': 'dashboard_event',
+            'message': {
+                'type': 'event',
+                'event_type': event.type.name,
+                'data': event.data,
+                'timestamp': event.timestamp.isoformat(),
+                'source': event.source,
+            },
+        },
+    )
+
+
+def _ensure_broadcast_subscription() -> None:
+    """Abonne le relais au bus au premier dashboard connecte.
+
+    Jamais desabonne : c'est une fonction de module, pas un objet a duree de
+    vie courte, donc aucune fuite. Sans dashboard connecte, le `group_send`
+    n'a simplement aucun destinataire.
+    """
+    global _broadcast_subscribed
+    if _broadcast_subscribed:
+        return
+
+    EventBus.get_instance().subscribe_all(_broadcast_event)
+    _broadcast_subscribed = True
+    logger.info("Relais EventBus -> dashboard abonne (une fois par process)")
 
 
 class DashboardConsumer(AsyncWebsocketConsumer):
@@ -25,9 +74,9 @@ class DashboardConsumer(AsyncWebsocketConsumer):
     les mises à jour en temps réel
     """
     
-    # Groupe Channels pour broadcast
-    DASHBOARD_GROUP = 'dashboard_updates'
-    
+    # Groupe Channels pour broadcast (alias du constant de module).
+    DASHBOARD_GROUP = DASHBOARD_GROUP
+
     async def connect(self):
         """Connexion d'un client dashboard"""
         await self.channel_layer.group_add(
@@ -35,16 +84,16 @@ class DashboardConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
         await self.accept()
-        
+
         logger.info(f"Dashboard client connected: {self.channel_name}")
-        
+
         # Envoyer l'état initial
         await self._send_initial_state()
-        
-        # S'abonner aux événements
-        event_bus = EventBus.get_instance()
-        event_bus.subscribe_all(self._handle_event)
-    
+
+        # La diffusion des evenements passe par un relais unique au niveau
+        # module : rien n'est abonne par connexion (cf. _broadcast_event).
+        _ensure_broadcast_subscription()
+
     async def disconnect(self, close_code):
         """Déconnexion d'un client dashboard"""
         await self.channel_layer.group_discard(
@@ -100,26 +149,6 @@ class DashboardConsumer(AsyncWebsocketConsumer):
             'type': 'terminals',
             'data': devices
         }))
-    
-    async def _handle_event(self, event: Event):
-        """Gère un événement du système"""
-        # Convertir en message WebSocket
-        message = {
-            'type': 'event',
-            'event_type': event.type.name,
-            'data': event.data,
-            'timestamp': event.timestamp.isoformat(),
-            'source': event.source,
-        }
-        
-        # Envoyer au groupe
-        await self.channel_layer.group_send(
-            self.DASHBOARD_GROUP,
-            {
-                'type': 'dashboard_event',
-                'message': message
-            }
-        )
     
     async def dashboard_event(self, event):
         """Handler pour les messages de groupe"""

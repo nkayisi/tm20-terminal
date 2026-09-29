@@ -35,35 +35,79 @@ def _terminals_with_status():
     return terminals
 
 
+def _config_form_prefix(config_id):
+    """Préfixe unique par configuration.
+
+    Plusieurs formulaires d'édition coexistent sur la page (une modale par
+    service) : le préfixe évite la collision des `name`/`id` des champs.
+    """
+    return f'config-{config_id}'
+
+
+def _render_third_party_configs(request, create_form=None, edit_form=None, open_modal=None):
+    """Rend la page des services tiers.
+
+    Chaque configuration porte son propre `edit_form` pré-rempli, utilisé par
+    la modale d'édition. `open_modal` (id DOM) permet de rouvrir automatiquement
+    la modale concernée lorsqu'une soumission a échoué, afin que les erreurs de
+    validation restent visibles.
+    """
+    configs = list(ThirdPartyConfig.objects.all().order_by('-created_at'))
+    for config in configs:
+        if edit_form is not None and edit_form.instance.pk == config.pk:
+            config.edit_form = edit_form
+        else:
+            config.edit_form = ThirdPartyConfigForm(
+                instance=config,
+                prefix=_config_form_prefix(config.pk),
+            )
+
+    return render(request, 'devices/dashboard/third_party_configs.html', {
+        'configs': configs,
+        'terminals': _terminals_with_status(),
+        'form': create_form if create_form is not None else ThirdPartyConfigForm(),
+        'open_modal': open_modal,
+    })
+
+
 class ThirdPartyConfigsView(LoginRequiredMixin, View):
     """Vue de gestion des configurations services tiers"""
-    
+
     def get(self, request):
-        configs = ThirdPartyConfig.objects.all().order_by('-created_at')
-        terminals = _terminals_with_status()
-        form = ThirdPartyConfigForm()
-        
-        return render(request, 'devices/dashboard/third_party_configs.html', {
-            'configs': configs,
-            'terminals': terminals,
-            'form': form,
-        })
-    
+        return _render_third_party_configs(request)
+
     def post(self, request):
         form = ThirdPartyConfigForm(request.POST)
         if form.is_valid():
             config = form.save()
             messages.success(request, f'Configuration "{config.name}" créée avec succès.')
             return redirect('dashboard:third_party_configs')
-        else:
-            configs = ThirdPartyConfig.objects.all().order_by('-created_at')
-            terminals = _terminals_with_status()
-            messages.error(request, 'Erreur lors de la création de la configuration.')
-            return render(request, 'devices/dashboard/third_party_configs.html', {
-                'configs': configs,
-                'terminals': terminals,
-                'form': form,
-            })
+
+        messages.error(request, 'Erreur lors de la création de la configuration.')
+        return _render_third_party_configs(
+            request, create_form=form, open_modal='addConfigModal'
+        )
+
+
+class ThirdPartyConfigEditView(LoginRequiredMixin, View):
+    """Édition d'une configuration service tiers depuis la liste"""
+
+    def post(self, request, config_id):
+        config = get_object_or_404(ThirdPartyConfig, id=config_id)
+        form = ThirdPartyConfigForm(
+            request.POST,
+            instance=config,
+            prefix=_config_form_prefix(config_id),
+        )
+        if form.is_valid():
+            config = form.save()
+            messages.success(request, f'Configuration "{config.name}" mise à jour.')
+            return redirect('dashboard:third_party_configs')
+
+        messages.error(request, 'Erreur lors de la mise à jour de la configuration.')
+        return _render_third_party_configs(
+            request, edit_form=form, open_modal=f'editConfigModal-{config_id}'
+        )
 
 
 class TerminalSchedulesView(LoginRequiredMixin, View):

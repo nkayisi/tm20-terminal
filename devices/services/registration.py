@@ -32,7 +32,11 @@ class RegistrationService:
         self._metrics = MetricsCollector.get_instance()
     
     @sync_to_async
-    def register(self, reg_msg: RegisterMessage) -> Tuple[Terminal, bool]:
+    def register(
+        self,
+        reg_msg: RegisterMessage,
+        client_ip: Optional[str] = None
+    ) -> Tuple[Terminal, bool]:
         """
         Enregistre ou met à jour un terminal
         Retourne (terminal, created)
@@ -44,6 +48,11 @@ class RegistrationService:
             'last_seen': timezone.now(),
             'is_active': True,
         }
+        
+        # L'IP aide a reconnaitre physiquement un terminal sur le reseau ;
+        # elle n'est pas dans le protocole, on la releve du transport.
+        if client_ip:
+            defaults['ip_address'] = client_ip
         
         if devinfo:
             defaults.update({

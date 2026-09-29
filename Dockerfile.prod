@@ -92,4 +92,10 @@ ENTRYPOINT ["/app/docker-entrypoint.sh"]
 # cote compose et redirige vers ce meme serveur (ws://IP:7788/ws/tm20/).
 EXPOSE 8000
 
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
+# Les terminaux TM20 ne repondent pas aux frames ping WebSocket : avec les
+# defauts de daphne (ping-interval 20 / ping-timeout 30) autobahn coupe la
+# connexion ~50 s apres le dernier message (close 1006). --ping-timeout 0
+# desactive cette coupure, le ping periodique restant utile pour NAT/proxy.
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", \
+     "--ping-interval", "30", "--ping-timeout", "0", \
+     "config.asgi:application"]

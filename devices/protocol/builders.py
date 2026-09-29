@@ -89,11 +89,17 @@ class ResponseBuilder:
         access: int = 1,
         enrollid: int = 0,
         username: str = "",
-        message: str = ""
+        message: str = "",
+        sn: str = "",
+        voice: str = ""
     ) -> dict:
-        """Réponse à sendqrcode"""
+        """Réponse à sendqrcode (doc section T4).
+
+        `sn` et `voice` font partie de la reponse documentee : `voice` est le
+        texte prononce par le terminal, omis s'il est vide.
+        """
         if success:
-            return {
+            resp = {
                 "ret": "sendqrcode",
                 "result": True,
                 "access": access,
@@ -101,11 +107,19 @@ class ResponseBuilder:
                 "username": username,
                 "message": message,
             }
-        return {
+            if sn:
+                resp["sn"] = sn
+            if voice:
+                resp["voice"] = voice
+            return resp
+        resp = {
             "ret": "sendqrcode",
             "result": False,
             "reason": 1,
         }
+        if sn:
+            resp["sn"] = sn
+        return resp
     
     @classmethod
     def generic(cls, ret: str, success: bool, reason: int = 1, **kwargs) -> dict:
@@ -195,13 +209,17 @@ class CommandBuilder:
         }
     
     @classmethod
-    def opendoor(cls, door: int = 1, delay: int = 5) -> dict:
-        """Ouvrir la porte"""
-        return {
-            "cmd": "opendoor",
-            "door": door,
-            "delay": delay,
-        }
+    def opendoor(cls, doornum: int = None) -> dict:
+        """Ouvrir la porte.
+
+        `doornum` (1-4) ne concerne que les controleurs 4 portes ; omis, la
+        commande ouvre toutes les portes (doc section S19). Les terminaux de
+        pointage/acces classiques n'en ont pas besoin.
+        """
+        cmd = {"cmd": "opendoor"}
+        if doornum is not None:
+            cmd["doornum"] = doornum
+        return cmd
     
     @classmethod
     def settime(cls, cloudtime: str = None) -> dict:
@@ -225,12 +243,22 @@ class CommandBuilder:
         }
     
     @classmethod
-    def getalllog(cls, stn: bool = True) -> dict:
-        """Récupérer tous les logs"""
-        return {
-            "cmd": "getalllog",
-            "stn": stn,
-        }
+    def getalllog(
+        cls,
+        stn: bool = True,
+        from_date: str = None,
+        to_date: str = None
+    ) -> dict:
+        """Récupérer tous les logs, avec plage de dates optionnelle.
+
+        `from_date`/`to_date` au format "YYYY-MM-DD" (doc section S11).
+        """
+        cmd = {"cmd": "getalllog", "stn": stn}
+        if from_date:
+            cmd["from"] = from_date
+        if to_date:
+            cmd["to"] = to_date
+        return cmd
     
     @classmethod
     def cleanlog(cls) -> dict:

@@ -222,12 +222,33 @@ class DeviceManager:
         
         return connection
     
-    async def unregister(self, sn: str) -> bool:
-        """Désenregistre une connexion"""
+    async def unregister(
+        self,
+        sn: str,
+        consumer: 'AsyncWebsocketConsumer' = None,
+    ) -> bool:
+        """Désenregistre une connexion.
+
+        `consumer` identifie la socket qui demande son propre retrait. Sans
+        cette verification, le `disconnect()` retarde d'une socket deja
+        remplacee (reconnexion apres timeout NAT : `register` installe la
+        nouvelle entree avant que la fermeture de l'ancienne ne soit livree)
+        detruisait l'etat de la connexion VIVANTE -- terminal affiche hors
+        ligne, commandes mises en file au lieu d'etre envoyees.
+
+        Retourne True seulement si l'entree a reellement ete retiree.
+        """
         async with self._conn_lock:
             if sn not in self._connections:
                 return False
-            
+
+            if consumer is not None and self._connections[sn].consumer is not consumer:
+                logger.info(
+                    f"[{sn}] Desenregistrement ignore : la connexion a deja "
+                    f"ete remplacee par une plus recente"
+                )
+                return False
+
             conn = self._connections.pop(sn)
             self._total_disconnections += 1
             
@@ -451,11 +472,26 @@ class DeviceManager:
             self._update_redis_connections()
 
     def _update_redis_connections(self) -> None:
-        """Met à jour la liste des connexions dans Redis (sync)"""
+        """Met à jour la liste des connexions dans Redis (sync).
+
+        Le pool de connexions vit en memoire du process ASGI. Redis est le
+        seul moyen pour les process HTTP et les workers Celery de savoir quels
+        terminaux sont en ligne, et depuis quand.
+        """
         try:
             connected_sns = list(self._connections.keys())
+            details = {
+                sn: {
+                    'connected_at': conn.connected_at.isoformat(),
+                    'last_message_at': conn.last_message_at.isoformat(),
+                    'message_count': conn.message_count,
+                    'metadata': conn.metadata,
+                }
+                for sn, conn in self._connections.items()
+            }
             cache.set('tm20:connected_devices', connected_sns, timeout=120)
             cache.set('tm20:connected_count', len(connected_sns), timeout=120)
+            cache.set('tm20:connected_details', details, timeout=120)
         except Exception as e:
             logger.error(f"Error updating Redis connections: {e}")
     
@@ -478,6 +514,21 @@ class DeviceManager:
         except Exception as e:
             logger.error(f"Error reading Redis connections: {e}")
             return []
+
+    @staticmethod
+    def get_connected_details_from_redis() -> Dict[str, dict]:
+        """Détails des connexions live, indexés par SN (pour django-http).
+
+        Contient `connected_at`, `last_message_at`, `message_count` et les
+        metadonnees du terminal : de quoi afficher depuis quand un terminal
+        est en ligne sans interroger la base.
+        """
+        try:
+            details = cache.get('tm20:connected_details', {})
+            return details if details is not None else {}
+        except Exception as e:
+            logger.error(f"Error reading Redis connection details: {e}")
+            return {}
 
 
 # Instance globale

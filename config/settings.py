@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -12,6 +13,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 def env_bool(name: str, default: str = '0') -> bool:
     """Lit une variable d'environnement booléenne (1/true/yes/on)."""
     return os.getenv(name, default).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def env_list(name: str, default: str = '') -> list:
+    """Lit une liste séparée par des virgules.
+
+    Tolère une valeur écrite en JSON (ex: ALLOWED_HOSTS=["*"]) : crochets et
+    guillemets sont retirés, sinon Django recevrait l'hôte littéral '["*"]' et
+    rejetterait toutes les requêtes (DisallowedHost).
+    """
+    raw = os.getenv(name, default).strip().strip('[]')
+    return [item.strip().strip('\'"') for item in raw.split(',') if item.strip().strip('\'"')]
 
 
 DEBUG = env_bool('DEBUG', '0')
@@ -29,9 +41,13 @@ if not SECRET_KEY:
             "Définissez une clé secrète unique dans l'environnement."
         )
 
-ALLOWED_HOSTS = [
-    h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()
-]
+# Les healthchecks des conteneurs sondent http://127.0.0.1:<port>/health/ :
+# le loopback doit toujours être autorisé, sinon CommonMiddleware répond 400
+# (DisallowedHost) et le conteneur est marqué unhealthy.
+_LOOPBACK_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1')
+if '*' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS += [h for h in _LOOPBACK_HOSTS if h not in ALLOWED_HOSTS]
 
 INSTALLED_APPS = [
     'daphne',
@@ -178,11 +194,33 @@ CACHES = {
     }
 }
 
+# Sous `manage.py test`, on bascule cache et channel layer en mémoire.
+#
+# Django substitue la base de données pendant les tests, mais NI le cache NI
+# le channel layer : une suite lancée contre la stack vivante écrit dans le
+# Redis de production, et un simple `cache.clear()` y déclenche un FLUSHDB
+# qui efface la présence des terminaux (`tm20:connected_devices`), les
+# groupes Channels et les files `pending_cmd:*` en vol.
+RUNNING_TESTS = sys.argv[1:2] == ['test']
+
+if RUNNING_TESTS:
+    CACHES = {
+        'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}
+    }
+    CHANNEL_LAYERS = {
+        'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}
+    }
+
 # TM20 Protocol Settings
 TM20_SETTINGS = {
     'WEBSOCKET_PORT': int(os.getenv('TM20_WEBSOCKET_PORT', 7788)),
     'HEARTBEAT_INTERVAL': int(os.getenv('TM20_HEARTBEAT_INTERVAL', 30)),
-    'CONNECTION_TIMEOUT': int(os.getenv('TM20_CONNECTION_TIMEOUT', 120)),
+    # Fermeture d'une connexion terminal restee silencieuse. Les serveurs ASGI
+    # tournent avec --ping-timeout 0 (les TM20 ne repondent pas aux frames ping
+    # WebSocket, cf. docker-compose.prod.yml) : ce delai est donc le seul filet
+    # contre les connexions mortes. Il doit rester large, un terminal sans
+    # pointage n'emettant aucun message applicatif.
+    'CONNECTION_TIMEOUT': int(os.getenv('TM20_CONNECTION_TIMEOUT', 600)),
     'MAX_LOG_BATCH_SIZE': 40,
     'REQUIRE_WHITELIST': env_bool('TM20_REQUIRE_WHITELIST', '0'),
     # Fuseau dans lequel les terminaux expriment l'heure murale.
@@ -228,6 +266,13 @@ LOGGING = {
     "root": {
         "handlers": ["console"],
         "level": "INFO",
+    },
+
+    # Django applique DEFAULT_LOGGING avant ce dict : sans neutraliser ses
+    # handlers, le logger "django" affiche chaque erreur une 1re fois (format
+    # brut) avant que root ne l'affiche formatée.
+    "loggers": {
+        "django": {"handlers": [], "level": "INFO", "propagate": True},
     },
 }
 
@@ -281,6 +326,6 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SECURE = SECURE_COOKIES  # True en HTTPS
 CSRF_COOKIE_HTTPONLY = False  # Doit être False pour JS
 CSRF_COOKIE_SAMESITE = 'Lax'
-CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000').split(',')
+CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000')
 CSRF_COOKIE_NAME = 'csrftoken'
 CSRF_HEADER_NAME = 'HTTP_X_CSRFTOKEN'

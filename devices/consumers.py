@@ -18,7 +18,13 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from django.conf import settings
 
 from .models import Terminal
-from .protocol import TM20Parser, MessageValidator, ValidationError
+from .protocol import (
+    CommandBuilder,
+    MessageValidator,
+    ResponseBuilder,
+    TM20Parser,
+    ValidationError,
+)
 from .handlers import (
     RegistrationHandler,
     AttendanceHandler,
@@ -30,6 +36,7 @@ from .handlers import (
 from .core.device_manager import DeviceManager, DeviceState
 from .core.events import EventBus, EventType
 from .core.metrics import MetricsCollector
+from .services import pending_commands
 from .services.commands import CommandService
 
 logger = logging.getLogger('devices.consumer')
@@ -58,6 +65,13 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
         self.registered: bool = False
         self.heartbeat_task: Optional[asyncio.Task] = None
         self.last_message_at: datetime = datetime.now()
+        self.client_ip: Optional[str] = None
+        # Etat des commandes paginees en cours (`getuserlist`, `getalllog`,
+        # `getnewlog`), par nom de commande. Porte par la connexion : une
+        # pagination n'a aucun sens au-dela de la socket qui l'a lancee.
+        self._pagination: Dict[str, dict] = {}
+        # Horodatage de la derniere sonde applicative envoyee (`gettime`).
+        self._last_probe_at: Optional[datetime] = None
         
         # Singletons
         self._device_manager = DeviceManager.get_instance()
@@ -87,8 +101,15 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
         """Connexion WebSocket établie"""
         await self.accept()
         
-        client = self.scope.get('client', ('unknown', 0))
-        logger.info(f"WebSocket connected: {client[0]}:{client[1]}")
+        client = self.scope.get('client') or ('unknown', 0)
+        self.client_ip = client[0] if client[0] != 'unknown' else None
+        # Le chemin est journalise : le protocole n'en impose aucun et il
+        # varie selon le firmware. C'est la premiere information utile pour
+        # diagnostiquer un terminal qui n'apparait pas dans l'application.
+        path = self.scope.get('path', '/')
+        logger.info(
+            f"WebSocket connected: {client[0]}:{client[1]} (chemin: {path})"
+        )
         
         # Démarrer le heartbeat
         self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
@@ -120,9 +141,14 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
             )
             logger.info(f"[{self.sn}] Retiré du groupe Channels terminal_{self.sn}")
         
-        # Désenregistrer du Device Manager
+        # Désenregistrer du Device Manager.
+        # `consumer=self` : si cette socket a deja ete remplacee par une
+        # reconnexion, le desenregistrement est refuse et l'etat de la
+        # connexion vivante reste intact.
         if self.sn:
-            await self._device_manager.unregister(self.sn)
+            was_current = await self._device_manager.unregister(
+                self.sn, consumer=self
+            )
 
             # NE PAS toucher à `is_active` ici : ce champ est le drapeau
             # d'administration « terminal géré/activé » (contrôlé manuellement),
@@ -133,6 +159,13 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
             # d'actualiser l'horodatage de dernière activité.
             from .services.registration import RegistrationService
             await RegistrationService().update_last_seen(self.sn)
+
+            # Les commandes restees sans reponse ne seront jamais confirmees.
+            # Uniquement si nous etions bien la connexion courante : vider la
+            # file d'une socket qui nous a remplaces ferait perdre la
+            # correlation des `setusername`/`setuserinfo` deja en vol sur elle.
+            if was_current:
+                pending_commands.clear(self.sn)
         
         # Mettre à jour les métriques
         self._metrics.update_active_connections(
@@ -156,7 +189,27 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
             try:
                 MessageValidator.validate(message)
             except ValidationError as e:
+                # Un terminal qui ne recoit aucune reponse retransmet en
+                # boucle : on repond toujours, meme sur message rejete
+                # (doc section 1, regle 5).
                 logger.warning(f"Invalid message: {e.message}")
+                # Seules les COMMANDES du terminal appellent un `ret` : repondre
+                # a une reponse (`ret`) ferait diverger l'echange.
+                #
+                # `isinstance` obligatoire : le message peut avoir ete rejete
+                # precisement parce qu'il n'est pas un dict (`[]`, `5`, `"reg"`
+                # -- et le routing accepte desormais tout chemin). Un `.get()`
+                # sur une liste leverait une AttributeError avalee par le
+                # `except Exception` englobant, donc aucun `ret` envoye : la
+                # retransmission silencieuse que ce bloc vise a supprimer.
+                cmd = (
+                    str(message.get('cmd') or '').strip().lower()
+                    if isinstance(message, dict) else ''
+                )
+                if cmd:
+                    await self._send_json(
+                        ResponseBuilder.generic(ret=cmd, success=False, reason=1)
+                    )
                 return
             
             # Traiter le message
@@ -176,8 +229,8 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
     
     async def _dispatch(self, message: dict):
         """Dispatch le message vers le bon handler"""
-        cmd = message.get('cmd', '').lower()
-        ret = message.get('ret', '').lower()
+        cmd = str(message.get('cmd') or '').strip().lower()
+        ret = str(message.get('ret') or '').strip().lower()
         
         if cmd:
             await self._handle_command(cmd, message)
@@ -191,14 +244,20 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
         handler = self._handlers.get(cmd)
         
         if not handler:
+            # Rester muet pousse le terminal a retransmettre indefiniment :
+            # la spec attend toujours un `ret` (doc section 1, regle 5).
             logger.warning(f"No handler for command: {cmd}")
+            await self._send_json(
+                ResponseBuilder.generic(ret=cmd, success=False, reason=1)
+            )
             return
         
         # Exécuter le handler
         result: HandlerResult = await handler.handle(
             message,
             terminal=self.terminal,
-            sn=self.sn
+            sn=self.sn,
+            client_ip=self.client_ip,
         )
         
         # Actions post-handler pour reg
@@ -241,9 +300,15 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
         result = await self._response_handler.handle(
             message,
             terminal=self.terminal,
-            sn=self.sn
+            sn=self.sn,
+            pagination_state=self._pagination,
         )
-        # Les réponses n'ont pas de réponse à envoyer
+        
+        # Les reponses ne se repondent pas, sauf les commandes paginees :
+        # le handler renvoie alors la demande de page suivante
+        # (`{"cmd": X, "stn": false}`, doc section 1.5).
+        if result.response:
+            await self._send_json(result.response)
     
     async def _send_pending_commands(self):
         """Envoie les commandes en attente"""
@@ -261,17 +326,37 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
                 logger.error(f"Error sending command {cmd.id}: {e}")
     
     async def _heartbeat_loop(self):
-        """Boucle de vérification du heartbeat"""
+        """Sonde applicative de vivacite.
+
+        Ni le transport ni le protocole ne permettent de distinguer un
+        terminal inactif d'un terminal mort :
+
+        - les TM20 ne repondent pas aux frames ping WebSocket, d'ou le
+          `--ping-timeout 0` des serveurs ASGI (cf. docker-compose.prod.yml) ;
+        - le protocole ne definit aucun keep-alive (doc, « Known issues »
+          point 16) et un terminal sans pointage n'emet rien de la nuit.
+
+        Se contenter de fermer sur le silence applicatif deconnectait donc un
+        terminal parfaitement sain a chaque CONNECTION_TIMEOUT, d'ou une boucle
+        de reconnexion. On interroge desormais le terminal avec `gettime`
+        (doc section S26), commande inoffensive a laquelle il DOIT repondre :
+        sa reponse rafraichit `last_message_at` via `receive()`. La fermeture
+        n'intervient que si le silence persiste malgre les sondes.
+        """
         timeout = settings.TM20_SETTINGS.get('CONNECTION_TIMEOUT', 120)
         interval = settings.TM20_SETTINGS.get('HEARTBEAT_INTERVAL', 30)
-        
+
         while True:
             try:
                 await asyncio.sleep(interval)
-                
+
                 elapsed = (datetime.now() - self.last_message_at).total_seconds()
+
                 if elapsed > timeout:
-                    logger.warning(f"[{self.sn}] Timeout, closing connection")
+                    logger.warning(
+                        f"[{self.sn}] Aucune reponse depuis {elapsed:.0f}s "
+                        f"malgre les sondes, fermeture de la connexion"
+                    )
                     await self._event_bus.emit(
                         EventType.DEVICE_TIMEOUT,
                         {'sn': self.sn},
@@ -279,11 +364,49 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
                     )
                     await self.close()
                     break
-                
+
+                # Avant `reg`, aucune commande n'a de sens : le terminal doit
+                # s'annoncer de lui-meme, le timeout ci-dessus reste le filet.
+                if not self.sn or elapsed < interval:
+                    continue
+
+                if not self._should_probe(interval):
+                    continue
+
+                if not await self._send_liveness_probe():
+                    break
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Heartbeat error: {e}")
+
+    def _should_probe(self, interval: float) -> bool:
+        """Evite d'empiler les sondes tant que la precedente est recente."""
+        if self._last_probe_at is None:
+            return True
+        return (datetime.now() - self._last_probe_at).total_seconds() >= interval
+
+    async def _send_liveness_probe(self) -> bool:
+        """Envoie `gettime` au terminal. Retourne False si la socket est morte."""
+        self._last_probe_at = datetime.now()
+        try:
+            await self._send_json(CommandBuilder.gettime())
+            logger.debug(f"[{self.sn}] Sonde de vivacite envoyee (gettime)")
+            return True
+        except Exception as e:
+            # L'envoi echoue : la socket est fermee cote reseau, inutile
+            # d'attendre l'expiration du timeout applicatif.
+            logger.warning(
+                f"[{self.sn}] Sonde de vivacite impossible ({e}), "
+                f"connexion consideree morte"
+            )
+            await self._event_bus.emit(
+                EventType.DEVICE_TIMEOUT,
+                {'sn': self.sn},
+                source='TM20Consumer'
+            )
+            return False
     
     async def _send_json(self, data: dict):
         """Envoie un message JSON au terminal"""
@@ -316,17 +439,34 @@ class TM20ConsumerV2(AsyncWebsocketConsumer):
             user_ids = command.pop('_user_ids', None)
             terminal_id = command.pop('_terminal_id', None)
             
-            if user_ids and command.get('cmd') == 'setusername':
-                # Stocker dans le cache Redis pour retrouver lors de la réponse
-                from django.core.cache import cache
-                cache_key = f'setusername_pending:{self.sn}'
-                cache.set(cache_key, {
-                    'user_ids': user_ids,
+            # Les reponses TM20 ne portent aucun identifiant de correlation :
+            # on empile ce qu'on envoie, le terminal repond dans l'ordre.
+            cmd_name = command.get('cmd')
+            
+            # `is not None` et non un test de verite : l'enrollid 0 est une
+            # valeur valide (le validateur ne rejette que les negatifs). Le
+            # confondre avec une absence enverrait la commande SANS entree
+            # dans la file, et toutes les reponses suivantes depileraient
+            # alors les metadonnees du mauvais utilisateur.
+            if cmd_name == 'setuserinfo' and command.get('enrollid') is not None:
+                pending_commands.push(self.sn, 'setuserinfo', {
+                    'enrollid': command['enrollid'],
+                    'backupnum': command.get('backupnum'),
                     'terminal_id': terminal_id,
-                    'enrollids': [u['enrollid'] for u in command.get('record', [])]
-                }, timeout=60)  # 60 secondes
+                })
+            
+            elif cmd_name == 'setusername':
+                pending_commands.push(self.sn, 'setusername', {
+                    'user_ids': user_ids or [],
+                    'terminal_id': terminal_id,
+                    'enrollids': [
+                        u['enrollid'] for u in command.get('record', [])
+                        if u.get('enrollid') is not None
+                    ],
+                })
                 logger.info(
-                    f"[{self.sn}] Métadonnées stockées en cache: {len(user_ids)} utilisateurs"
+                    f"[{self.sn}] Métadonnées empilées: "
+                    f"{len(user_ids or [])} utilisateur(s)"
                 )
             
             logger.info(

@@ -53,6 +53,22 @@ class ThirdPartyConfigForm(forms.ModelForm):
             }),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Le token n'est jamais renvoyé au navigateur (PasswordInput) : en
+        # édition, un champ laissé vide signifie « conserver le token actuel ».
+        if self.instance.pk:
+            self.fields['auth_token'].widget.attrs['placeholder'] = (
+                'Laisser vide pour conserver le token actuel'
+            )
+
+    def clean_auth_token(self):
+        token = self.cleaned_data.get('auth_token')
+        if not token and self.instance.pk:
+            return self.instance.auth_token
+        return token
+
 
 class TerminalScheduleForm(forms.ModelForm):
     """Formulaire de création/édition d'un horaire de terminal"""

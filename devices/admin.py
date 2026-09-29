@@ -19,16 +19,29 @@ from .models import (
 @admin.register(Terminal)
 class TerminalAdmin(admin.ModelAdmin):
     list_display = [
-        'sn', 'model', 'firmware', 'is_active', 'is_whitelisted',
-        'used_users', 'user_capacity', 'last_seen'
+        'short_label', 'sn', 'location', 'model', 'is_online', 'ip_address',
+        'is_active', 'is_whitelisted', 'used_users', 'user_capacity', 'last_seen'
     ]
-    list_filter = ['is_active', 'is_whitelisted', 'model']
-    search_fields = ['sn', 'cpusn', 'mac_address']
-    readonly_fields = ['created_at', 'updated_at']
+    list_filter = ['is_active', 'is_whitelisted', 'model', 'location']
+    search_fields = ['sn', 'name', 'location', 'cpusn', 'mac_address', 'ip_address']
+    readonly_fields = ['created_at', 'updated_at', 'ip_address']
+    
+    @admin.display(description="Libellé", ordering='name')
+    def short_label(self, obj):
+        return obj.short_label
+    
+    @admin.display(description="En ligne", boolean=True)
+    def is_online(self, obj):
+        """Présence live, lue depuis Redis (le pool WebSocket vit ailleurs)."""
+        from .core.device_manager import DeviceManager
+        return obj.sn in DeviceManager.get_connected_sns_from_redis()
     
     fieldsets = (
         ('Identification', {
-            'fields': ('sn', 'cpusn', 'model', 'firmware', 'mac_address', 'fp_algo')
+            'fields': ('name', 'location', 'sn', 'cpusn', 'model', 'firmware',
+                       'mac_address', 'ip_address', 'fp_algo'),
+            'description': "« Nom » et « Emplacement » sont propres à l'application : "
+                           "ils servent à reconnaître le terminal et ne lui sont jamais envoyés.",
         }),
         ('Capacités', {
             'fields': (

@@ -31,7 +31,7 @@ class ParserTests(SimpleTestCase):
             TM20Parser.parse_json("{not json}")
 
     def test_serialize_roundtrip(self):
-        payload = {"cmd": "opendoor", "door": 1, "delay": 5}
+        payload = {"cmd": "opendoor", "doornum": 1}
         self.assertEqual(TM20Parser.parse_json(TM20Parser.serialize(payload)), payload)
 
     def test_parse_register_exposes_model_and_firmware(self):
@@ -76,6 +76,25 @@ class ParserTests(SimpleTestCase):
         )
         self.assertIsNone(TM20Parser.parse_datetime(""))
         self.assertIsNone(TM20Parser.parse_datetime("not-a-date"))
+
+    def test_parse_datetime_tolerates_spaces_and_unpadded(self):
+        # doc sections 6.4 (espaces parasites) et 6.2-18 (dates non paddees)
+        self.assertEqual(
+            TM20Parser.parse_datetime("  2018-11-1 09:05:00  "),
+            datetime(2018, 11, 1, 9, 5, 0),
+        )
+        self.assertEqual(
+            TM20Parser.parse_datetime("2018-11-01"),
+            datetime(2018, 11, 1, 0, 0, 0),
+        )
+
+    def test_get_command_type_trims_and_lowercases(self):
+        # doc section 6.4 : `"ret": " getuserinfo "` vu sur du materiel reel
+        self.assertEqual(
+            TM20Parser.get_command_type({"ret": " getuserinfo "}), "getuserinfo"
+        )
+        self.assertEqual(TM20Parser.get_command_type({"cmd": "REG"}), "reg")
+        self.assertIsNone(TM20Parser.get_command_type({}))
 
 
 class ValidatorTests(SimpleTestCase):
@@ -142,11 +161,25 @@ class BuilderTests(SimpleTestCase):
         self.assertEqual(resp["logindex"], 7)
         self.assertEqual(resp["access"], 1)
 
-    def test_command_opendoor(self):
+    def test_command_opendoor_all_doors_by_default(self):
+        # doornum omis = toutes les portes (doc section S19)
+        self.assertEqual(CommandBuilder.opendoor(), {"cmd": "opendoor"})
+
+    def test_command_opendoor_with_doornum(self):
         self.assertEqual(
-            CommandBuilder.opendoor(door=2, delay=10),
-            {"cmd": "opendoor", "door": 2, "delay": 10},
+            CommandBuilder.opendoor(doornum=2),
+            {"cmd": "opendoor", "doornum": 2},
         )
+
+    def test_command_getalllog_date_range(self):
+        cmd = CommandBuilder.getalllog(from_date="2026-01-01", to_date="2026-01-31")
+        self.assertEqual(cmd["cmd"], "getalllog")
+        self.assertTrue(cmd["stn"])
+        self.assertEqual(cmd["from"], "2026-01-01")
+        self.assertEqual(cmd["to"], "2026-01-31")
+
+    def test_command_getalllog_without_dates(self):
+        self.assertEqual(CommandBuilder.getalllog(), {"cmd": "getalllog", "stn": True})
 
     def test_command_setuserinfo(self):
         cmd = CommandBuilder.setuserinfo(
@@ -192,3 +225,26 @@ class TerminalTimeTests(SimpleTestCase):
         self.assertRegex(
             terminal_now_str(), r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$"
         )
+
+
+class OpenDoorParamTests(SimpleTestCase):
+    """`opendoor` : le n° de porte ne doit pas se perdre (doc section S19)."""
+
+    def build(self, params):
+        from devices.views import SendCommandView
+
+        return SendCommandView()._build_command_payload('opendoor', params)
+
+    def test_doornum_is_forwarded(self):
+        self.assertEqual(self.build({'doornum': 3}), {'cmd': 'opendoor', 'doornum': 3})
+
+    def test_legacy_door_alias_is_honoured(self):
+        """Régression : l'endpoint acceptait `door`, devenu silencieusement ignoré.
+
+        Un contrôleur 4 portes recevait alors `{"cmd":"opendoor"}` — soit
+        l'ouverture de TOUTES les portes — pour une demande visant la porte 2.
+        """
+        self.assertEqual(self.build({'door': 2}), {'cmd': 'opendoor', 'doornum': 2})
+
+    def test_omitted_opens_all_doors_per_spec(self):
+        self.assertEqual(self.build({}), {'cmd': 'opendoor'})

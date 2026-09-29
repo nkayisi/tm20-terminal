@@ -25,7 +25,8 @@ class UserHandler(BaseHandler):
         self,
         message: Dict[str, Any],
         terminal: Optional[Terminal] = None,
-        sn: Optional[str] = None
+        sn: Optional[str] = None,
+        **context: Any
     ) -> HandlerResult:
         """Traite un message senduser"""
         

@@ -333,6 +333,10 @@ class UserSyncService:
                 details={'exception': type(e).__name__}
             )
     
+    # `setusername` accepte au maximum 50 enregistrements par paquet
+    # (doc section S6). Au-dela, le terminal tronque ou rejette le message.
+    SETUSERNAME_BATCH_SIZE = 50
+
     @sync_to_async
     def _get_users_by_ids(self, user_ids: List[int]) -> List[BiometricUser]:
         """Récupère les utilisateurs par leurs IDs"""
@@ -342,122 +346,142 @@ class UserSyncService:
                 terminal=self.terminal
             ).order_by('enrollid')
         )
-    
+
+    @sync_to_async
+    def _get_credentials(self, users: List[BiometricUser]) -> Dict[int, list]:
+        """Credentials à téléverser, groupés par identifiant utilisateur."""
+        from ..models import BiometricCredential
+
+        credentials: Dict[int, list] = {}
+        queryset = BiometricCredential.objects.filter(
+            user__in=users
+        ).order_by('user_id', 'backupnum')
+        for cred in queryset:
+            # Un credential sans donnee n'a rien a televerser : c'est le cas
+            # des marqueurs crees par `getuserlist`, qui signalent seulement
+            # qu'une empreinte existe deja sur le terminal.
+            if not cred.record:
+                continue
+            credentials.setdefault(cred.user_id, []).append(cred)
+        return credentials
+
     async def _send_users_batch_to_terminal(self, users: List[BiometricUser]) -> bool:
         """
-        Envoie plusieurs utilisateurs vers le terminal en une seule commande batch.
-        Plus efficace et évite de surcharger le terminal.
-        
+        Envoie plusieurs utilisateurs vers le terminal.
+
+        Deux commandes distinctes, conformement a la spec :
+        - `setusername` (section S6) cree/renomme les entrees utilisateur, par
+          paquets de 50 au maximum ;
+        - `setuserinfo` (section S3) televerse UN credential (empreinte, carte,
+          mot de passe, photo) et ne peut pas etre remplace par `setusername`.
+
+        Un utilisateur sans credential enregistre cote serveur ne recoit donc
+        que son nom : le gabarit biometrique doit etre enrole sur le terminal
+        ou importe au prealable.
+
         Returns:
-            True si l'envoi a réussi, False sinon
+            True si toutes les commandes ont ete transmises
         """
-        from channels.layers import get_channel_layer
+        if not users:
+            return True
+
+        sent_ok = True
+
+        # 1. Noms, par paquets de 50 (limite protocolaire)
+        for start in range(0, len(users), self.SETUSERNAME_BATCH_SIZE):
+            chunk = users[start:start + self.SETUSERNAME_BATCH_SIZE]
+            if not await self._send_setusername(chunk):
+                sent_ok = False
+
+        # 2. Credentials disponibles
+        credentials = await self._get_credentials(users)
+        if credentials:
+            by_id = {user.id: user for user in users}
+            for user_id, creds in credentials.items():
+                user = by_id.get(user_id)
+                if user is None:
+                    continue
+                for cred in creds:
+                    if not await self._send_setuserinfo(user, cred):
+                        sent_ok = False
+        else:
+            self.logger.info(
+                f"Aucun credential a televerser pour {len(users)} utilisateur(s) : "
+                f"seuls les noms sont envoyes"
+            )
+
+        return sent_ok
+
+    async def _send_setusername(self, users: List[BiometricUser]) -> bool:
+        """Envoie un paquet `setusername` (<= 50 enregistrements)."""
         from ..protocol.builders import CommandBuilder
-        
-        channel_layer = get_channel_layer()
-        if not channel_layer:
-            self.logger.error("Channel layer non disponible")
-            return False
-        
-        # Préparer la liste des utilisateurs pour la commande batch
-        users_data = [
+
+        payload = CommandBuilder.setusername(users=[
             {
                 'enrollid': user.enrollid,
                 'name': user.name or f"User{user.enrollid}",
             }
             for user in users
-        ]
-        
-        # Construire la commande setusername batch
-        payload = CommandBuilder.setusername(users=users_data)
-        
-        # Stocker les IDs des utilisateurs pour le handler de réponse
-        # On les met dans le payload pour que le handler puisse les retrouver
+        ])
+        # Metadonnees consommees par le consumer pour correler la reponse.
         payload['_user_ids'] = [user.id for user in users]
         payload['_terminal_id'] = self.terminal.id
-        
-        try:
-            group_name = f'terminal_{self.terminal.sn}'
-            message = {
-                'type': 'send_command',
-                'command': payload
-            }
-            
-            self.logger.info(
-                f"Envoi batch de {len(users)} utilisateurs vers groupe '{group_name}': "
-                f"enrollids={[u.enrollid for u in users]}"
-            )
-            
-            await channel_layer.group_send(group_name, message)
-            
-            self.logger.info(
-                f"Commande setusername batch envoyée pour {len(users)} utilisateurs "
-                f"vers terminal {self.terminal.sn}"
-            )
-            return True
-                
-        except Exception as e:
-            self.logger.error(
-                f"Erreur envoi batch: {e}"
-            )
-            return False
-    
-    async def _send_user_to_terminal(self, user: BiometricUser) -> bool:
-        """
-        Envoie un utilisateur vers le terminal physique via WebSocket.
-        Utilise Channels Layer pour communication inter-conteneurs.
-        
-        IMPORTANT: Cette méthode envoie seulement la commande.
-        Le marquage comme 'synced_to_terminal' doit être fait par le consumer
-        après réception de la confirmation du terminal (ret=setuserinfo).
-        
-        Returns:
-            True si l'envoi a réussi, False sinon
-        """
-        from channels.layers import get_channel_layer
+
+        return await self._group_send(
+            payload,
+            f"setusername pour {len(users)} utilisateur(s) "
+            f"(enrollids={[u.enrollid for u in users]})"
+        )
+
+    async def _send_setuserinfo(self, user: BiometricUser, credential) -> bool:
+        """Téléverse un credential vers le terminal (doc section S3)."""
         from ..protocol.builders import CommandBuilder
-        
+
+        payload = CommandBuilder.setuserinfo(
+            enrollid=user.enrollid,
+            name=user.name or f"User{user.enrollid}",
+            backupnum=credential.backupnum,
+            admin=user.admin,
+            record=self._coerce_record(credential),
+        )
+        return await self._group_send(
+            payload,
+            f"setuserinfo enrollid={user.enrollid} "
+            f"backupnum={credential.backupnum}"
+        )
+
+    @staticmethod
+    def _coerce_record(credential):
+        """Type attendu par `record`, dicte par `backupnum` (doc section 1.2).
+
+        Mot de passe (10) et carte RFID (11) sont des NOMBRES ; empreintes,
+        visages, paumes et photos sont des chaines.
+        """
+        if credential.backupnum in (10, 11):
+            try:
+                return int(credential.record)
+            except (TypeError, ValueError):
+                return credential.record
+        return credential.record
+
+    async def _group_send(self, payload: dict, description: str) -> bool:
+        """Transmet une commande au consumer du terminal via Channels."""
+        from channels.layers import get_channel_layer
+
         channel_layer = get_channel_layer()
         if not channel_layer:
             self.logger.error("Channel layer non disponible")
             return False
-        
-        # Construire la commande setusername pour créer l'utilisateur de base
-        # Note: setuserinfo est pour les données biométriques, pas pour créer l'utilisateur
-        payload = CommandBuilder.setusername(
-            users=[{
-                'enrollid': user.enrollid,
-                'name': user.name or f"User{user.enrollid}",
-            }]
-        )
-        
+
+        group_name = f'terminal_{self.terminal.sn}'
         try:
-            group_name = f'terminal_{self.terminal.sn}'
-            message = {
-                'type': 'send_command',
-                'command': payload
-            }
-            
-            self.logger.info(
-                f"Envoi vers groupe Channels '{group_name}': "
-                f"cmd={payload.get('cmd')}, enrollid={payload.get('enrollid')}, "
-                f"name={payload.get('name')}"
+            await channel_layer.group_send(
+                group_name, {'type': 'send_command', 'command': payload}
             )
-            
-            # Envoyer via Channels Layer au groupe du terminal
-            # Le consumer WebSocket recevra ce message et l'enverra au terminal
-            await channel_layer.group_send(group_name, message)
-            
-            self.logger.info(
-                f"Commande setuserinfo envoyée pour user {user.enrollid} "
-                f"vers terminal {self.terminal.sn} via Channels (groupe: {group_name})"
-            )
+            self.logger.info(f"Envoye vers '{group_name}' : {description}")
             return True
-                
         except Exception as e:
-            self.logger.error(
-                f"Erreur envoi setuserinfo pour user {user.enrollid}: {e}"
-            )
+            self.logger.error(f"Echec envoi ({description}) : {e}")
             return False
 
 

@@ -2,7 +2,6 @@
 Vues du dashboard temps réel
 """
 
-import asyncio
 import json
 from datetime import datetime, timedelta
 
@@ -10,14 +9,37 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 from django.views import View
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 from django.contrib.auth.mixins import LoginRequiredMixin
 
-from ..models import Terminal, AttendanceLog, CommandQueue
+from django.db.models import Count, IntegerField, OuterRef, Subquery
+from django.db.models.functions import Coalesce
+
+from ..models import Terminal, AttendanceLog, BiometricUser, CommandQueue
 from ..core.device_manager import DeviceManager
 from ..core.metrics import MetricsCollector
 from ..core.events import EventBus
+
+
+def _count_for_terminal(model, field: str = 'terminal'):
+    """Compte les lignes de `model` rattachees a chaque terminal.
+
+    Sous-requete agregee plutot qu'un `Count()` annote : plusieurs Count()
+    sur des relations inverses distinctes dans une meme requete produisent un
+    produit cartesien entre ces relations, que `distinct=True` ne fait que
+    dedupliquer APRES coup.
+    """
+    return Coalesce(
+        Subquery(
+            model.objects
+            .filter(**{field: OuterRef('pk')})
+            .order_by()
+            .values(field)
+            .annotate(n=Count('pk'))
+            .values('n'),
+            output_field=IntegerField(),
+        ),
+        0,
+    )
 
 
 class DashboardView(LoginRequiredMixin, View):
@@ -81,49 +103,115 @@ class DashboardAPIView(LoginRequiredMixin, View):
 class TerminalsAPIView(LoginRequiredMixin, View):
     """API pour la liste des terminaux"""
     
+    # Un terminal vu il y a moins de 5 min mais sans connexion live est
+    # considere « au repos » plutot qu'injoignable (reconnexion en cours).
+    IDLE_WINDOW_SECONDS = 300
+
     def get(self, request):
         """Liste des terminaux avec statut temps réel"""
-        device_manager = DeviceManager.get_instance()
-        
-        # Récupérer les terminaux connectés (depuis Redis)
+        # Presence live : le pool du DeviceManager n'existe que dans le
+        # process ASGI, Redis est la seule source lisible ici.
         connected_sns = DeviceManager.get_connected_sns_from_redis()
+        live = DeviceManager.get_connected_details_from_redis()
         
-        terminals = Terminal.objects.all().order_by('-last_seen')
+        # Deux sous-requetes plutot que deux Count() dans la meme requete :
+        # agreger d'un coup sur `users` ET `logs` joint les deux relations
+        # entre elles, donc materialise utilisateurs x pointages avant de
+        # dedupliquer (500 users x 200 000 logs = 100 M de lignes pour UN
+        # terminal). Cet endpoint est interroge en boucle par le dashboard.
+        terminals = (
+            Terminal.objects.all()
+            .annotate(
+                users_count=_count_for_terminal(BiometricUser),
+                logs_count=_count_for_terminal(AttendanceLog),
+            )
+            .order_by('-last_seen')
+        )
         
+        now = timezone.now()
         data = []
         for t in terminals:
             is_connected = t.sn in connected_sns
-            
-            # Calculer le statut
-            if is_connected:
-                status = 'online'
-                status_class = 'success'
-            elif t.is_active and t.last_seen:
-                age = (timezone.now() - t.last_seen).total_seconds()
-                if age < 300:  # 5 minutes
-                    status = 'idle'
-                    status_class = 'warning'
-                else:
-                    status = 'offline'
-                    status_class = 'danger'
-            else:
-                status = 'offline'
-                status_class = 'secondary'
+            status, status_class = self._compute_status(t, is_connected, now)
+            session = live.get(t.sn) or {}
             
             data.append({
+                # `id` sert de cle stable au rendu ; `sn` reste l'identite
+                # protocolaire du terminal.
+                'id': t.id,
                 'sn': t.sn,
+                'name': t.name,
+                'display_name': t.display_name,
+                'short_label': t.short_label,
+                'location': t.location,
                 'model': t.model or 'TM20',
                 'firmware': t.firmware,
+                'mac_address': t.mac_address,
+                'ip_address': t.ip_address,
                 'status': status,
                 'status_class': status_class,
+                'status_label': self.STATUS_LABELS[status],
                 'is_connected': is_connected,
+                'is_active': t.is_active,
+                'connected_since': session.get('connected_at'),
+                'connected_since_human': self._humanize_uptime(session.get('connected_at')),
+                'last_message_at': session.get('last_message_at'),
                 'last_seen': t.last_seen.isoformat() if t.last_seen else None,
-                'last_seen_human': self._humanize_time(t.last_seen) if t.last_seen else 'Never',
+                'last_seen_human': self._humanize_time(t.last_seen) if t.last_seen else 'Jamais',
+                # Compteurs applicatifs (ce que l'application connait) et
+                # compteurs terminal (ce que l'appareil a declare au `reg`).
+                'users_count': t.users_count,
+                'logs_count': t.logs_count,
                 'used_users': t.used_users,
                 'user_capacity': t.user_capacity,
+                'used_logs': t.used_logs,
+                'log_capacity': t.log_capacity,
             })
         
-        return JsonResponse({'terminals': data})
+        return JsonResponse({
+            'terminals': data,
+            'connected_count': len(connected_sns),
+            'total': len(data),
+        })
+
+    STATUS_LABELS = {
+        'online': 'En ligne',
+        'idle': 'Au repos',
+        'offline': 'Hors ligne',
+        'disabled': 'Désactivé',
+    }
+
+    def _compute_status(self, terminal, is_connected, now):
+        """Statut d'affichage d'un terminal."""
+        if is_connected:
+            return 'online', 'success'
+        if not terminal.is_active:
+            return 'disabled', 'secondary'
+        if terminal.last_seen:
+            age = (now - terminal.last_seen).total_seconds()
+            if age < self.IDLE_WINDOW_SECONDS:
+                return 'idle', 'warning'
+        return 'offline', 'danger'
+
+    def _humanize_uptime(self, connected_at_iso):
+        """Durée de connexion lisible, ex: « depuis 2h14 »."""
+        if not connected_at_iso:
+            return None
+        try:
+            started = datetime.fromisoformat(connected_at_iso)
+        except (TypeError, ValueError):
+            return None
+        
+        # `connected_at` est un datetime naif (horloge du process ASGI) :
+        # on compare a la meme horloge.
+        seconds = max(0, int((datetime.now() - started).total_seconds()))
+        if seconds < 60:
+            return f"{seconds}s"
+        minutes, seconds = divmod(seconds, 60)
+        hours, minutes = divmod(minutes, 60)
+        if hours:
+            return f"{hours}h{minutes:02d}"
+        return f"{minutes}min"
     
     def _humanize_time(self, dt):
         """Convertit un datetime en temps relatif"""
@@ -134,16 +222,16 @@ class TerminalsAPIView(LoginRequiredMixin, View):
         diff = now - dt
         
         if diff.total_seconds() < 60:
-            return 'Just now'
+            return "à l'instant"
         elif diff.total_seconds() < 3600:
             mins = int(diff.total_seconds() / 60)
-            return f'{mins}m ago'
+            return f'il y a {mins} min'
         elif diff.total_seconds() < 86400:
             hours = int(diff.total_seconds() / 3600)
-            return f'{hours}h ago'
+            return f'il y a {hours} h'
         else:
             days = int(diff.total_seconds() / 86400)
-            return f'{days}d ago'
+            return f'il y a {days} j'
 
 
 class LogsAPIView(LoginRequiredMixin, View):
@@ -225,8 +313,12 @@ class CommandAPIView(LoginRequiredMixin, View):
             from ..protocol import CommandBuilder
             
             builder_methods = {
+                # `door` : alias historique conserve, sans quoi une demande
+                # d'ouverture d'UNE porte ouvrirait toutes les portes d'un
+                # controleur 4 portes. Omis, la spec ouvre tout
+                # (doc section S19), comportement attendu en mono-porte.
                 'opendoor': lambda p: CommandBuilder.opendoor(
-                    p.get('door', 1), p.get('delay', 5)
+                    p.get('doornum', p.get('door'))
                 ),
                 'settime': lambda p: CommandBuilder.settime(p.get('time')),
                 'gettime': lambda p: CommandBuilder.gettime(),
@@ -244,12 +336,14 @@ class CommandAPIView(LoginRequiredMixin, View):
             
             payload = builder_methods[command](params)
             
-            # Essayer d'envoyer directement si connecté
-            device_manager = DeviceManager.get_instance()
-            sent = asyncio.run(device_manager.send_to_device(sn, payload))
+            # Envoi via la couche Channels (le DeviceManager en memoire
+            # n'est pas accessible depuis un process HTTP).
+            from ..services.commands import CommandService
+            sent = CommandService.dispatch(sn, payload)
             
             if not sent:
-                # Ajouter à la file d'attente
+                # Terminal hors ligne : la commande sera rejouee au prochain
+                # `reg` (voir TM20ConsumerV2._send_pending_commands).
                 CommandQueue.objects.create(
                     terminal=terminal,
                     command=command,

@@ -1,0 +1,79 @@
+{% comment %}
+Champs d'une configuration service tiers.
+Partagé par la modale de création et les modales d'édition : attend `form`.
+{% endcomment %}
+<div class="space-y-4">
+  {% if form.non_field_errors %}
+  <div class="p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg">
+    {{ form.non_field_errors }}
+  </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.name.label }}</label>
+      {{ form.name }}
+      {% if form.name.errors %}
+      <p class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</p>
+      {% endif %}
+    </div>
+    <div>
+      <label for="{{ form.base_url.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.base_url.label }}</label>
+      {{ form.base_url }}
+      {% if form.base_url.errors %}
+      <p class="mt-1 text-sm text-red-600">{{ form.base_url.errors.0 }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.description.label }}</label>
+    {{ form.description }}
+    {% if form.description.errors %}
+    <p class="mt-1 text-sm text-red-600">{{ form.description.errors.0 }}</p>
+    {% endif %}
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <label for="{{ form.users_endpoint.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.users_endpoint.label }}</label>
+      {{ form.users_endpoint }}
+      {% if form.users_endpoint.errors %}
+      <p class="mt-1 text-sm text-red-600">{{ form.users_endpoint.errors.0 }}</p>
+      {% endif %}
+    </div>
+    <div>
+      <label for="{{ form.attendance_endpoint.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.attendance_endpoint.label }}</label>
+      {{ form.attendance_endpoint }}
+      {% if form.attendance_endpoint.errors %}
+      <p class="mt-1 text-sm text-red-600">{{ form.attendance_endpoint.errors.0 }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <label for="{{ form.auth_type.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.auth_type.label }}</label>
+      {{ form.auth_type }}
+      {% if form.auth_type.errors %}
+      <p class="mt-1 text-sm text-red-600">{{ form.auth_type.errors.0 }}</p>
+      {% endif %}
+    </div>
+    <div>
+      <label for="{{ form.auth_token.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.auth_token.label }}</label>
+      {{ form.auth_token }}
+      {% if form.auth_token.errors %}
+      <p class="mt-1 text-sm text-red-600">{{ form.auth_token.errors.0 }}</p>
+      {% elif form.instance.pk %}
+      <p class="mt-1 text-xs text-gray-500">
+        Le token existant n'est pas affiché. Laissez vide pour le conserver.
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="flex items-center">
+    {{ form.is_active }}
+    <label for="{{ form.is_active.id_for_label }}" class="ml-2 text-sm font-medium text-gray-700">{{ form.is_active.label }}</label>
+  </div>
+</div>

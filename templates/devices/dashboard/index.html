@@ -249,57 +249,68 @@ Réel{% endblock %} {% block extra_css %}
       <div
         class="divide-y divide-gray-200 max-h-72 sm:max-h-96 overflow-y-auto scrollbar-thin"
       >
-        <template x-for="terminal in terminals" :key="terminal.id">
+        <!-- La cle doit etre stable et unique : `sn` est l'identite du
+             terminal dans le protocole, toujours presente. -->
+        <template x-for="terminal in terminals" :key="terminal.sn">
           <div
             class="px-4 sm:px-6 py-3 sm:py-4 hover:bg-gray-50 transition-colors duration-150"
           >
             <div class="flex items-center justify-between">
               <div class="flex items-center space-x-3 min-w-0">
                 <div
-                  class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0"
-                  x-text="terminal.sn.substring(0, 2).toUpperCase()"
+                  class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0"
+                  :class="terminalAvatarClass(terminal)"
+                  x-text="terminalInitials(terminal)"
                 ></div>
                 <div class="min-w-0">
                   <p
                     class="text-sm font-medium text-gray-900 truncate"
-                    x-text="terminal.sn"
+                    x-text="terminal.short_label || terminal.sn"
+                    :title="terminal.sn"
                   ></p>
-                  <p
-                    class="text-xs text-gray-500 truncate"
-                    x-text="terminal.model || 'TM20'"
-                  ></p>
+                  <p class="text-xs text-gray-500 truncate">
+                    <!-- Le n° de serie reste visible des qu'un nom le masque,
+                         c'est lui qui identifie l'appareil sur le terrain. -->
+                    <span x-show="terminal.name" x-text="terminal.sn + ' · '"></span>
+                    <span x-text="terminal.model || 'TM20'"></span>
+                    <span x-show="terminal.location" x-text="' · ' + terminal.location"></span>
+                  </p>
                 </div>
               </div>
               <div class="flex items-center space-x-2 flex-shrink-0 ml-2">
                 <span
-                  x-show="terminal.connected"
-                  class="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                  class="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium"
+                  :class="terminalBadgeClass(terminal)"
+                  :title="terminal.connected_since_human
+                            ? 'Connecté depuis ' + terminal.connected_since_human
+                            : 'Vu ' + (terminal.last_seen_human || 'jamais')"
                 >
-                  <span class="status-indicator online mr-1.5"></span>
-                  <span class="hidden sm:inline">En ligne</span>
-                  <span class="sm:hidden">On</span>
-                </span>
-                <span
-                  x-show="!terminal.connected"
-                  class="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-                >
-                  <span class="status-indicator offline mr-1.5"></span>
-                  <span class="hidden sm:inline">Hors ligne</span>
-                  <span class="sm:hidden">Off</span>
+                  <span
+                    class="status-indicator mr-1.5"
+                    :class="terminal.connected ? 'online' : 'offline'"
+                  ></span>
+                  <span x-text="terminal.status_label || (terminal.connected ? 'En ligne' : 'Hors ligne')"></span>
                 </span>
               </div>
             </div>
             <div
               class="mt-2 flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500"
             >
+              <span x-text="'Utilisateurs: ' + (terminal.users_count || 0)"></span>
+              <span x-text="'Pointages: ' + (terminal.logs_count || 0)"></span>
               <span
-                x-text="'Utilisateurs: ' + (terminal.users_count || 0)"
+                x-show="terminal.connected && terminal.connected_since_human"
+                x-text="'Connecté depuis ' + terminal.connected_since_human"
+                class="text-green-600"
               ></span>
-              <span x-text="'Logs: ' + (terminal.logs_count || 0)"></span>
               <span
-                x-show="terminal.last_seen"
-                x-text="'Vu: ' + formatTime(terminal.last_seen)"
-                class="hidden sm:inline"
+                x-show="!terminal.connected"
+                x-text="'Vu ' + (terminal.last_seen_human || 'jamais')"
+              ></span>
+              <span
+                x-show="terminal.ip_address"
+                x-text="terminal.ip_address"
+                class="hidden sm:inline font-mono"
               ></span>
             </div>
           </div>
@@ -577,9 +588,35 @@ Réel{% endblock %} {% block extra_css %}
         return {
           ...t,
           connected: t.is_connected ?? t.connected ?? false,
-          users_count: t.used_users ?? t.users_count ?? 0,
-          logs_count: t.used_logs ?? t.logs_count ?? 0,
+          // Compteurs applicatifs d'abord (ce que l'application connait
+          // vraiment) ; les compteurs du terminal ne sont qu'un repli.
+          users_count: t.users_count ?? t.used_users ?? 0,
+          logs_count: t.logs_count ?? t.used_logs ?? 0,
         };
+      },
+
+      terminalInitials(t) {
+        const source = t.short_label || t.sn || "?";
+        return source.substring(0, 2).toUpperCase();
+      },
+
+      terminalAvatarClass(t) {
+        return t.connected
+          ? "bg-gradient-to-br from-green-400 to-green-600"
+          : "bg-gradient-to-br from-gray-300 to-gray-500";
+      },
+
+      terminalBadgeClass(t) {
+        switch (t.status) {
+          case "online":
+            return "bg-green-100 text-green-800";
+          case "idle":
+            return "bg-amber-100 text-amber-800";
+          case "disabled":
+            return "bg-gray-100 text-gray-600";
+          default:
+            return "bg-red-100 text-red-800";
+        }
       },
 
       normalizeLog(l) {

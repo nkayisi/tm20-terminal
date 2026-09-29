@@ -255,7 +255,9 @@ Utilisateurs{% endblock %} {% block content %}
             <option value="">Sélectionner un terminal</option>
             {% for terminal in terminals %}
             <option value="{{ terminal.id }}">
-              {{ terminal.sn }} - {{ terminal.alias }} {% if terminal.is_online %}• En ligne{% else %}• Hors ligne{% endif %}
+              {{ terminal.short_label }}{% if terminal.name %} — {{ terminal.sn }}{% endif %}
+              {% if terminal.location %}· {{ terminal.location }}{% endif %}
+              {% if terminal.is_online %}• En ligne{% else %}• Hors ligne{% endif %}
             </option>
             {% endfor %}
           </select>
@@ -411,10 +413,10 @@ Utilisateurs{% endblock %} {% block content %}
                 </div>
                 <div class="ml-3">
                   <p class="text-sm font-medium text-gray-900">
-                    {{ mapping.terminal.sn }}
+                    {{ mapping.terminal.short_label }}
                   </p>
                   <p class="text-sm text-gray-500">
-                    {{ mapping.terminal.model|default:"TM20" }}
+                    {% if mapping.terminal.name %}{{ mapping.terminal.sn }} · {% endif %}{{ mapping.terminal.model|default:"TM20" }}
                   </p>
                 </div>
               </div>

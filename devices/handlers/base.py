@@ -42,7 +42,8 @@ class BaseHandler(ABC):
         self,
         message: Dict[str, Any],
         terminal: Optional['Terminal'] = None,
-        sn: Optional[str] = None
+        sn: Optional[str] = None,
+        **context: Any
     ) -> HandlerResult:
         """
         Traite le message et retourne le résultat
@@ -51,6 +52,9 @@ class BaseHandler(ABC):
             message: Message JSON parsé
             terminal: Terminal enregistré (si disponible)
             sn: Serial number (si disponible avant registration)
+            **context: Informations de transport (ex: `client_ip`), fournies
+                par le consumer et ignorees par les handlers qui n'en ont pas
+                l'usage.
         
         Returns:
             HandlerResult avec la réponse à envoyer

@@ -20,6 +20,7 @@ urlpatterns = [
     # Vues de gestion
     path('management/', management_views.ManagementDashboardView.as_view(), name='management'),
     path('management/third-party-configs/', management_views.ThirdPartyConfigsView.as_view(), name='third_party_configs'),
+    path('management/third-party-configs/<int:config_id>/edit/', management_views.ThirdPartyConfigEditView.as_view(), name='third_party_config_edit'),
     path('management/schedules/', management_views.TerminalSchedulesView.as_view(), name='schedules'),
     path('management/schedules/<int:terminal_id>/', management_views.TerminalSchedulesView.as_view(), name='schedules_terminal'),
     path('management/user-sync/', management_views.UserSyncView.as_view(), name='user_sync'),

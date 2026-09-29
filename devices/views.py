@@ -2,23 +2,45 @@
 Vues API REST pour la gestion des terminaux TM20
 """
 
-import asyncio
 import json
 from datetime import datetime, timedelta
 
 from django.http import JsonResponse
 from django.utils import timezone
-from django.utils.decorators import method_decorator
 from django.views import View
-from django.views.decorators.csrf import csrf_exempt
 
 from .core.device_manager import DeviceManager
 from .models import AttendanceLog, BiometricUser, CommandQueue, Terminal
 from .protocol import CommandBuilder
+from .services.commands import CommandService
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class TerminalListView(View):
+class AuthenticatedView(View):
+    """Vue de base exigeant une session authentifiée.
+
+    Ces endpoints exposent le referentiel des terminaux ET l'envoi de
+    commandes destructrices (`reboot`, `cleanuser`, `cleanlog`, `opendoor`) :
+    ils ne doivent jamais etre accessibles anonymement. Meme contrat que
+    `devices.api.views.BaseAPIView` -- 401 JSON plutot qu'une redirection HTML
+    vers le login, les appelants etant des clients JSON.
+
+    Ces vues ne sont PAS `csrf_exempt` : l'authentification se faisant par
+    cookie de session, une exemption laisserait n'importe quel site tiers
+    declencher `opendoor`/`reboot`/`cleanuser` depuis le navigateur d'un
+    exploitant connecte. Les appelants navigateur envoient deja le jeton via
+    le helper `apiCall()` du dashboard.
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {'success': False, 'error': 'Authentification requise'},
+                status=401,
+            )
+        return super().dispatch(request, *args, **kwargs)
+
+
+class TerminalListView(AuthenticatedView):
     """Liste des terminaux"""
     
     def get(self, request):
@@ -39,8 +61,7 @@ class TerminalListView(View):
         return JsonResponse({'terminals': data})
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class TerminalDetailView(View):
+class TerminalDetailView(AuthenticatedView):
     """Détail d'un terminal"""
     
     def get(self, request, sn):
@@ -86,8 +107,7 @@ class TerminalDetailView(View):
             return JsonResponse({'error': 'Terminal non trouvé'}, status=404)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class SendCommandView(View):
+class SendCommandView(AuthenticatedView):
     """Envoie une commande à un terminal"""
     
     def post(self, request, sn):
@@ -112,7 +132,7 @@ class SendCommandView(View):
             )
             
             # Essayer d'envoyer immédiatement si le terminal est connecté
-            sent = asyncio.run(self._try_send_now(sn, payload))
+            sent = CommandService.dispatch(sn, payload)
             
             if sent:
                 cmd.status = 'sent'
@@ -133,8 +153,15 @@ class SendCommandView(View):
     def _build_command_payload(self, command: str, params: dict) -> dict:
         """Construit le payload de la commande"""
         builders = {
+            # `door` est l'ancien nom du parametre accepte par cet endpoint :
+            # on le conserve en alias pour ne pas transformer une demande
+            # d'ouverture d'UNE porte en ouverture de toutes les portes sur un
+            # controleur 4 portes. Omis, la spec ouvre toutes les portes
+            # (doc section S19), ce dont les terminaux mono-porte ont besoin.
+            # `delay` n'existe pas dans `opendoor` : le temps de relais est
+            # `opendelay` de `setdevlock` (doc section S20).
             'opendoor': lambda p: CommandBuilder.opendoor(
-                p.get('door', 1), p.get('delay', 5)
+                p.get('doornum', p.get('door'))
             ),
             'settime': lambda p: CommandBuilder.settime(
                 p.get('time')
@@ -162,14 +189,9 @@ class SendCommandView(View):
             return builders[command](params)
         return None
     
-    async def _try_send_now(self, sn: str, payload: dict) -> bool:
-        """Tente d'envoyer immédiatement au terminal"""
-        device_manager = DeviceManager.get_instance()
-        return await device_manager.send_to_device(sn, payload)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class TerminalUsersView(View):
+class TerminalUsersView(AuthenticatedView):
     """Utilisateurs d'un terminal"""
     
     def get(self, request, sn):
@@ -193,8 +215,7 @@ class TerminalUsersView(View):
             return JsonResponse({'error': 'Terminal non trouvé'}, status=404)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class TerminalLogsView(View):
+class TerminalLogsView(AuthenticatedView):
     """Logs de pointage d'un terminal"""
     
     def get(self, request, sn):
@@ -243,13 +264,14 @@ class TerminalLogsView(View):
             return JsonResponse({'error': 'Terminal non trouvé'}, status=404)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class ConnectedTerminalsView(View):
+class ConnectedTerminalsView(AuthenticatedView):
     """Liste des terminaux actuellement connectés"""
     
     def get(self, request):
-        device_manager = DeviceManager.get_instance()
-        connected = asyncio.run(device_manager.get_connected_sns())
+        # Le pool en memoire du DeviceManager n'existe que dans le process
+        # ASGI qui porte les WebSockets : depuis une vue HTTP, Redis est la
+        # seule source de verite.
+        connected = DeviceManager.get_connected_sns_from_redis()
         return JsonResponse({
             'connected': connected,
             'count': len(connected)

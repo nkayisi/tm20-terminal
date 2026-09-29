@@ -25,12 +25,13 @@ class QRCodeHandler(BaseHandler):
         self,
         message: Dict[str, Any],
         terminal: Optional[Terminal] = None,
-        sn: Optional[str] = None
+        sn: Optional[str] = None,
+        **context: Any
     ) -> HandlerResult:
         """Traite un message sendqrcode"""
         
         if not terminal:
-            response = ResponseBuilder.sendqrcode(success=False)
+            response = ResponseBuilder.sendqrcode(success=False, sn=sn or "")
             return HandlerResult.fail("Terminal not registered", response)
         
         qrcode = message.get('record', '')
@@ -46,7 +47,8 @@ class QRCodeHandler(BaseHandler):
             access=1 if access else 0,
             enrollid=enrollid,
             username=username,
-            message=msg
+            message=msg,
+            sn=terminal.sn,
         )
         
         return HandlerResult.ok(

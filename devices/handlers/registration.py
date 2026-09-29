@@ -28,7 +28,8 @@ class RegistrationHandler(BaseHandler):
         self,
         message: Dict[str, Any],
         terminal: Optional[Terminal] = None,
-        sn: Optional[str] = None
+        sn: Optional[str] = None,
+        **context: Any
     ) -> HandlerResult:
         """Traite un message reg"""
         
@@ -52,7 +53,9 @@ class RegistrationHandler(BaseHandler):
         
         # Parser et enregistrer
         reg_msg = TM20Parser.parse_register(message)
-        terminal, created = await self._service.register(reg_msg)
+        terminal, created = await self._service.register(
+            reg_msg, client_ip=context.get('client_ip')
+        )
         
         # Émettre l'événement
         await self._event_bus.emit(
@@ -67,6 +70,12 @@ class RegistrationHandler(BaseHandler):
         )
         
         # Construire la réponse (cloudtime généré par le builder en heure terminal)
+        #
+        # nosenduser=True : le terminal ne remonte PAS automatiquement les
+        # utilisateurs enroles a son clavier (doc section T1). Choix assume --
+        # le serveur reste maitre du referentiel utilisateurs et les pousse via
+        # setusername/setuserinfo. Le handler `senduser` reste en place et
+        # redeviendra actif le jour ou ce drapeau passe a False.
         response = ResponseBuilder.reg(
             success=True,
             nosenduser=True

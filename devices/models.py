@@ -11,6 +11,21 @@ class Terminal(models.Model):
         db_index=True,
         verbose_name="Numéro de série"
     )
+    # Le protocole n'identifie un terminal que par son `sn` (ex: ZYTJ20128568),
+    # illisible pour un exploitant. Ces deux champs sont purement applicatifs :
+    # ils ne sont jamais envoyes au terminal, ils servent a le reconnaitre.
+    name = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Nom",
+        help_text="Libellé lisible, ex: « Entrée principale ». À défaut, le n° de série est affiché."
+    )
+    location = models.CharField(
+        max_length=150,
+        blank=True,
+        verbose_name="Emplacement",
+        help_text="Site, bâtiment ou salle où le terminal est installé."
+    )
     cpusn = models.CharField(
         max_length=50,
         blank=True,
@@ -30,6 +45,12 @@ class Terminal(models.Model):
         max_length=17,
         blank=True,
         verbose_name="Adresse MAC"
+    )
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        verbose_name="Dernière adresse IP",
+        help_text="Relevée à chaque enregistrement (`reg`) du terminal."
     )
     
     user_capacity = models.IntegerField(default=3000, verbose_name="Capacité utilisateurs")
@@ -72,7 +93,19 @@ class Terminal(models.Model):
         ordering = ['-last_seen']
     
     def __str__(self):
+        return self.display_name
+    
+    @property
+    def display_name(self) -> str:
+        """Libellé lisible du terminal, avec repli sur le n° de série."""
+        if self.name:
+            return f"{self.name} ({self.sn})"
         return f"{self.model or 'TM20'} - {self.sn}"
+    
+    @property
+    def short_label(self) -> str:
+        """Libellé court : le nom si connu, sinon le n° de série."""
+        return self.name or self.sn
     
     def update_last_seen(self):
         self.last_seen = timezone.now()
@@ -312,9 +345,14 @@ class BiometricCredential(models.Model):
 class AttendanceLog(models.Model):
     """Journal de pointage"""
     
+    # La spec se contredit sur `mode` (doc section 6.1-1) : l'exemple sendlog
+    # donne 1=empreinte / 2=mot de passe / 3=carte / 8=visage, les notes de log
+    # donnent 1=carte. Le terminal en service (TM20) envoie mode=1 pour des
+    # pointages a l'empreinte : c'est la premiere table qui fait foi ici.
+    # Toute valeur hors table est journalisee a la reception (AttendanceService).
     MODE_CHOICES = [
         (0, 'Empreinte'),
-        (1, 'Carte'),
+        (1, 'Empreinte'),
         (2, 'Mot de passe'),
         (3, 'Carte'),
         (8, 'Visage'),
@@ -443,6 +481,16 @@ class AttendanceLog(models.Model):
         indexes = [
             models.Index(fields=['terminal', 'time']),
             models.Index(fields=['enrollid', 'time']),
+        ]
+        constraints = [
+            # Un terminal retransmet son lot tant qu'il n'a pas recu de reponse
+            # (reconnexion, message rejete...). Cette contrainte rend ces
+            # renvois idempotents : bulk_create(ignore_conflicts=True) les
+            # ecarte au lieu de creer des pointages en double.
+            models.UniqueConstraint(
+                fields=['terminal', 'enrollid', 'time', 'event'],
+                name='uniq_attendance_log_per_terminal_event',
+            ),
         ]
     
     def __str__(self):

@@ -13,8 +13,6 @@ from typing import Dict, Any
 
 from django.http import JsonResponse
 from django.views import View
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 from django.shortcuts import get_object_or_404
 from asgiref.sync import async_to_sync
 
@@ -40,6 +38,11 @@ class BaseAPIView(View):
     configurations tierces, des utilisateurs et des synchronisations, et ne
     doivent jamais être accessibles anonymement. Un accès non authentifié
     renvoie 401 en JSON (plutôt qu'une redirection HTML vers le login).
+
+    Ces vues ne sont PAS `csrf_exempt` : l'authentification reposant sur le
+    cookie de session, une exemption exposerait les POST/PUT/DELETE (création
+    de configuration, déclenchement de synchronisation) à une requête émise
+    par un site tiers depuis le navigateur d'un exploitant connecté.
     """
 
     def dispatch(self, request, *args, **kwargs):
@@ -74,7 +77,6 @@ class BaseAPIView(View):
             return {}
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class ThirdPartyConfigListView(BaseAPIView):
     """Liste et création des configurations de services tiers"""
     
@@ -136,7 +138,6 @@ class ThirdPartyConfigListView(BaseAPIView):
             return self.error_response(str(e), status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class ThirdPartyConfigDetailView(BaseAPIView):
     """Détail, modification et suppression d'une configuration"""
     
@@ -208,7 +209,6 @@ class ThirdPartyConfigDetailView(BaseAPIView):
         return self.success_response(message="Configuration supprimée")
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class TerminalMappingView(BaseAPIView):
     """Gestion des mappings terminal <-> configuration"""
     
@@ -264,7 +264,6 @@ class TerminalMappingView(BaseAPIView):
         )
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class UserSyncView(BaseAPIView):
     """Synchronisation des utilisateurs depuis un service tiers"""
     
@@ -325,7 +324,6 @@ class UserSyncView(BaseAPIView):
             return self.error_response(str(e), status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class UserSyncStatusView(BaseAPIView):
     """Statut de synchronisation des utilisateurs d'un terminal"""
     
@@ -340,7 +338,6 @@ class UserSyncStatusView(BaseAPIView):
             return self.error_response(str(e), status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class AttendanceSyncView(BaseAPIView):
     """Synchronisation des pointages vers un service tiers"""
     
@@ -446,7 +443,6 @@ class DeadLetterView(BaseAPIView):
             return self.error_response(str(e), status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class TerminalScheduleListView(BaseAPIView):
     """Liste et création des horaires d'un terminal"""
     
@@ -516,7 +512,6 @@ class TerminalScheduleListView(BaseAPIView):
             return self.error_response(str(e), status=500)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class TerminalScheduleDetailView(BaseAPIView):
     """Détail, modification et suppression d'un horaire"""
     
