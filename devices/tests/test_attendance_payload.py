@@ -1,12 +1,15 @@
 """
 Forme du corps envoyé aux services tiers pour les pointages.
 
-Le contrat est volontairement uniforme : toujours un objet portant la clé
-`attendances`, dont la valeur est un tableau — y compris quand il ne contient
-qu'un seul pointage. C'est le cas le plus fréquent en exploitation (la
-synchronisation tourne chaque minute, il est rare que deux personnes badgent
-dans le même intervalle), donc celui qu'une forme variable ferait diverger du
-cas groupé sans qu'on le remarque.
+Le contrat est volontairement uniforme : toujours `{"count": N,
+"attendances": [...]}`, y compris quand le tableau ne contient qu'un seul
+pointage. C'est le cas le plus fréquent en exploitation (la synchronisation
+tourne chaque minute, il est rare que deux personnes badgent dans le même
+intervalle), donc celui qu'une forme variable ferait diverger du cas groupé
+sans qu'on le remarque.
+
+`count` est dérivé du tableau au moment de l'envoi. Le test qui compte ici est
+celui qui vérifie qu'il ne peut pas en diverger.
 """
 
 import asyncio
@@ -58,7 +61,7 @@ class AttendancePayloadShapeTests(TestCase):
         """Le cas courant : un pointage seul, mais dans un tableau."""
         payload = self._send(1)
 
-        self.assertEqual(list(payload), ['attendances'])
+        self.assertEqual(payload['count'], 1)
         self.assertIsInstance(payload['attendances'], list)
         self.assertEqual(len(payload['attendances']), 1)
         self.assertEqual(payload['attendances'][0]['log_id'], 1000)
@@ -66,15 +69,24 @@ class AttendancePayloadShapeTests(TestCase):
     def test_several_records_share_the_same_shape(self):
         payload = self._send(3)
 
-        self.assertEqual(list(payload), ['attendances'])
+        self.assertEqual(payload['count'], 3)
         self.assertEqual(
             [r['log_id'] for r in payload['attendances']], [1000, 1001, 1002]
         )
 
     def test_shape_does_not_depend_on_batch_size(self):
         """Le point de tout l'exercice : aucune bascule selon la taille du lot."""
-        shapes = {tuple(self._send(n)) for n in (1, 2, 5)}
-        self.assertEqual(shapes, {('attendances',)})
+        shapes = {tuple(sorted(self._send(n))) for n in (1, 2, 5)}
+        self.assertEqual(shapes, {('attendances', 'count')})
+
+    def test_count_always_matches_the_array(self):
+        """`count` derive du tableau : il ne doit jamais pouvoir mentir."""
+        for n in (1, 2, 5, 17):
+            payload = self._send(n)
+            self.assertEqual(
+                payload['count'], len(payload['attendances']),
+                f"count incoherent pour un lot de {n}",
+            )
 
     def test_records_keep_the_same_fields_whatever_the_count(self):
         alone = self._send(1)['attendances'][0]

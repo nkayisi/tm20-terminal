@@ -301,14 +301,22 @@ class HTTPAdapter(ThirdPartyAdapter):
         try:
             url = self.build_url(self.config.attendance_endpoint)
 
-            # Corps toujours de la meme forme : { "attendances": [ ... ] },
+            # Corps toujours de la meme forme :
+            #     { "count": N, "attendances": [ ... ] }
             # y compris pour un pointage unique, ou le tableau n'en contient
             # qu'un. Faire dependre la structure de la taille du lot obligerait
             # le recepteur a gerer deux cas pour la meme operation, et le
             # basculement se produirait tout seul selon ce qui s'est accumule
             # depuis la derniere synchronisation -- donc rarement en test, et
             # un jour en production.
-            payload = {'attendances': [att.to_dict() for att in attendance_list]}
+            #
+            # `count` est derive du tableau, jamais tenu a part : c'est la
+            # seule facon de garantir qu'il ne puisse pas mentir. Il reprend le
+            # vocabulaire du protocole TM20, ou le terminal annonce deja ses
+            # pointages sous la forme {"cmd": "sendlog", "count": N,
+            # "record": [...]}.
+            records = [att.to_dict() for att in attendance_list]
+            payload = {'count': len(records), 'attendances': records}
 
             response = await self._request('POST', url, json=payload)
 
