@@ -1,4 +1,5 @@
-{% extends "devices/dashboard/base.html" %} {% block title %}Synchronisation
+{% extends "devices/dashboard/base.html" %}
+{% load ui %} {% block title %}Synchronisation
 Utilisateurs{% endblock %} {% block content %}
 <div class="space-y-6 animate-fade-in">
   <!-- Messages Django -->
@@ -357,155 +358,185 @@ Utilisateurs{% endblock %} {% block content %}
     </div>
   </div>
 
-  <!-- Mappings Table -->
-  <div
-    class="bg-surface-card rounded-xl shadow-sm border border-border overflow-hidden"
-  >
-    <div class="px-6 py-4 border-b border-border">
-      <h3 class="text-lg font-semibold text-content">
-        Mappings Terminal ↔ Configuration
-      </h3>
+  <!-- Associations terminal <-> service tiers -->
+  <div class="card overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
+      <div>
+        <h3 class="text-lg font-semibold">Associations terminal ↔ service</h3>
+        <p class="mt-0.5 text-sm text-content-secondary">
+          Une association indique quel terminal se synchronise avec quel service,
+          et dans quel sens. Sans elle, aucune synchronisation n'est possible.
+        </p>
+      </div>
+      <button type="button" class="btn btn-primary" data-open-modal="mappingModal"
+              data-mapping-reset>
+        {% icon "plus" "size-4" %}Nouvelle association
+      </button>
     </div>
+
     {% if mappings %}
-    <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-border">
-        <thead class="bg-surface-sunken">
-          <tr>
-            <th
-              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
-            >
-              Terminal
-            </th>
-            <th
-              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
-            >
-              Configuration
-            </th>
-            <th
-              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
-            >
-              Sync Users
-            </th>
-            <th
-              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
-            >
-              Sync Attendance
-            </th>
-            <th
-              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
-            >
-              Dernière Sync
-            </th>
-          </tr>
-        </thead>
-        <tbody class="bg-surface-card divide-y divide-border">
-          {% for mapping in mappings %}
-          <tr class="hover:bg-surface-hover transition-colors duration-150">
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="flex items-center">
-                <div
-                  class="w-10 h-10 rounded-lg bg-brand flex items-center justify-center text-brand-on font-semibold text-sm"
-                >
-                  {{ mapping.terminal.sn|slice:":2"|upper }}
-                </div>
-                <div class="ml-3">
-                  <p class="text-sm font-medium text-content">
-                    {{ mapping.terminal.short_label }}
-                  </p>
-                  <p class="text-sm text-content-subtle">
-                    {% if mapping.terminal.name %}{{ mapping.terminal.sn }} · {% endif %}{{ mapping.terminal.model|default:"TM20" }}
-                  </p>
-                </div>
-              </div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-content">
-              {{ mapping.config.name }}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              {% if mapping.sync_users %}
-              <span
-                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-subtle text-success-text"
-              >
-                <svg
-                  class="w-3 h-3 mr-1"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clip-rule="evenodd"
-                  ></path>
-                </svg>
-                Oui
-              </span>
-              {% else %}
-              <span
-                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-hover text-content"
-                >Non</span
-              >
-              {% endif %}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              {% if mapping.sync_attendance %}
-              <span
-                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-subtle text-success-text"
-              >
-                <svg
-                  class="w-3 h-3 mr-1"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clip-rule="evenodd"
-                  ></path>
-                </svg>
-                Oui
-              </span>
-              {% else %}
-              <span
-                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-hover text-content"
-                >Non</span
-              >
-              {% endif %}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-content-subtle">
-              {% if mapping.last_user_sync %} 
-              {{ mapping.last_user_sync|date:"d/m/Y H:i" }} {% else %}
-              <span class="text-content-subtle">Jamais</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Terminal</th>
+              <th>Service</th>
+              <th>Sens de synchronisation</th>
+              <th>État</th>
+              <th>Dernière synchro</th>
+              <th><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for mapping in mappings %}
+              <tr{% if not mapping.is_active %} class="opacity-60"{% endif %}>
+                <td>
+                  <p class="font-medium">{{ mapping.terminal.short_label }}</p>
+                  {% if mapping.terminal.name %}
+                    <p class="font-mono text-xs text-content-subtle">{{ mapping.terminal.sn }}</p>
+                  {% endif %}
+                </td>
+                <td>{{ mapping.config.name }}</td>
+                <td>
+                  <div class="flex flex-wrap gap-1.5">
+                    {% if mapping.sync_users %}
+                      <span class="badge" data-tone="info">{% icon "arrow-down-tray" "size-3" %}Utilisateurs</span>
+                    {% endif %}
+                    {% if mapping.sync_attendance %}
+                      <span class="badge" data-tone="success">{% icon "cloud-arrow-up" "size-3" %}Pointages</span>
+                    {% endif %}
+                    {% if not mapping.sync_users and not mapping.sync_attendance %}
+                      <span class="badge" data-tone="warning">Aucun sens actif</span>
+                    {% endif %}
+                  </div>
+                </td>
+                <td>
+                  {% if mapping.is_active %}
+                    <span class="badge" data-tone="success"><span class="badge-dot"></span>Active</span>
+                  {% else %}
+                    <span class="badge" data-tone="neutral"><span class="badge-dot"></span>Désactivée</span>
+                  {% endif %}
+                </td>
+                <td class="text-content-secondary">
+                  {% if mapping.last_user_sync or mapping.last_attendance_sync %}
+                    <span class="tabular">
+                      {{ mapping.last_user_sync|default_if_none:mapping.last_attendance_sync|date:"d/m/Y H:i" }}
+                    </span>
+                  {% else %}
+                    <span class="text-content-subtle">Jamais</span>
+                  {% endif %}
+                </td>
+                <td class="text-right">
+                  <div class="flex items-center justify-end gap-1">
+                    <button type="button" class="btn btn-ghost btn-sm"
+                            aria-label="Modifier l'association"
+                            data-open-modal="mappingModal"
+                            data-mapping-id="{{ mapping.pk }}"
+                            data-mapping-terminal="{{ mapping.terminal_id }}"
+                            data-mapping-config="{{ mapping.config_id }}"
+                            data-mapping-users="{{ mapping.sync_users|yesno:'1,' }}"
+                            data-mapping-attendance="{{ mapping.sync_attendance|yesno:'1,' }}"
+                            data-mapping-active="{{ mapping.is_active|yesno:'1,' }}">
+                      {% icon "pencil-square" "size-4" %}
+                    </button>
+                    <form method="post" class="inline"
+                          data-confirm="Supprimer l'association {{ mapping.terminal.short_label }} ↔ {{ mapping.config.name }} ? La synchronisation entre les deux s'arrêtera.">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="delete_mapping" />
+                      <input type="hidden" name="mapping_id" value="{{ mapping.pk }}" />
+                      <button type="submit" class="btn btn-ghost btn-sm hover:text-danger"
+                              aria-label="Supprimer l'association">
+                        {% icon "trash" "size-4" %}
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     {% else %}
-    <div class="p-12 text-center">
-      <svg
-        class="w-16 h-16 mx-auto text-content-subtle mb-4"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-        ></path>
-      </svg>
-      <h3 class="text-lg font-medium text-content mb-2">
-        Aucun mapping configuré
-      </h3>
-      <p class="text-sm text-content-subtle">
-        Associez un terminal à une configuration pour activer la
-        synchronisation.
-      </p>
-    </div>
+      <div class="p-12 text-center">
+        {% icon "link" "size-12 mx-auto text-content-subtle" %}
+        <h3 class="mt-4 text-lg font-medium">Aucune association</h3>
+        <p class="mx-auto mt-1.5 max-w-md text-sm text-content-secondary">
+          Associez un terminal à un service tiers pour activer la synchronisation.
+          C'est le prérequis de tout le reste de cette page.
+        </p>
+        <button type="button" class="btn btn-primary mt-6" data-open-modal="mappingModal"
+                data-mapping-reset>
+          {% icon "plus" "size-4" %}Créer la première association
+        </button>
+      </div>
     {% endif %}
   </div>
 </div>
+
+<!-- Modale d'association. Une seule pour toute la page : les valeurs sont
+     injectees depuis les attributs de la ligne, plutot que de generer N
+     modales identiques dans le document. -->
+<div id="mappingModal" data-modal class="hidden fixed inset-0 z-50 overflow-y-auto">
+  <div class="flex min-h-full items-center justify-center p-4">
+    <div class="fixed inset-0 bg-black/50" data-modal-backdrop></div>
+    <div class="relative w-full max-w-lg card shadow-3" role="dialog" aria-modal="true"
+         aria-labelledby="mappingModalTitle">
+      <form method="post" class="form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_mapping" />
+        <input type="hidden" name="mapping_id" id="mappingId" value="" />
+
+        <div class="flex items-center justify-between border-b border-border px-6 py-4">
+          <h3 class="text-lg font-semibold" id="mappingModalTitle">Nouvelle association</h3>
+          <button type="button" class="btn btn-ghost btn-sm" data-close-modal="mappingModal"
+                  aria-label="Fermer">{% icon "x-mark" "size-5" %}</button>
+        </div>
+
+        <div class="space-y-5 px-6 py-5">
+          {% if mapping_form.non_field_errors %}
+            {% include "ui/_alert.html" with tone="danger" text=mapping_form.non_field_errors.0 %}
+          {% endif %}
+          {% field mapping_form.terminal %}
+          {% field mapping_form.config help_text="Seuls les services actifs sont utilisés par la synchronisation automatique." %}
+
+          <fieldset class="rounded-md border border-border p-4">
+            <legend class="px-1.5 text-sm font-medium text-content-secondary">
+              Sens de la synchronisation
+            </legend>
+            <div class="space-y-3">
+              {% field mapping_form.sync_users help_text="Importe les utilisateurs du service vers le terminal." %}
+              {% field mapping_form.sync_attendance help_text="Renvoie les pointages du terminal vers le service." %}
+            </div>
+          </fieldset>
+
+          {% field mapping_form.is_active help_text="Décochez pour suspendre sans supprimer l'association." %}
+        </div>
+
+        <div class="flex justify-end gap-3 border-t border-border px-6 py-4">
+          <button type="button" class="btn btn-secondary" data-close-modal="mappingModal">Annuler</button>
+          <button type="submit" class="btn btn-primary">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Prefixe la modale depuis la ligne cliquee. Le bouton « Nouvelle
+  // association » porte `data-mapping-reset` et vide le formulaire.
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-open-modal="mappingModal"]');
+    if (!btn) return;
+    var edit = btn.hasAttribute('data-mapping-id');
+    document.getElementById('mappingModalTitle').textContent =
+      edit ? "Modifier l'association" : 'Nouvelle association';
+    document.getElementById('mappingId').value = edit ? btn.dataset.mappingId : '';
+    var form = document.getElementById('mappingModal').querySelector('form');
+    form.querySelector('[name="terminal"]').value = edit ? btn.dataset.mappingTerminal : '';
+    form.querySelector('[name="config"]').value = edit ? btn.dataset.mappingConfig : '';
+    form.querySelector('[name="sync_users"]').checked = edit ? !!btn.dataset.mappingUsers : true;
+    form.querySelector('[name="sync_attendance"]').checked = edit ? !!btn.dataset.mappingAttendance : true;
+    form.querySelector('[name="is_active"]').checked = edit ? !!btn.dataset.mappingActive : true;
+  });
+</script>
 {% endblock %}

@@ -16,7 +16,12 @@ from ..models import (
     TerminalSchedule,
     AttendanceLog,
 )
-from .forms import ThirdPartyConfigForm, TerminalScheduleForm, UserSyncForm
+from .forms import (
+    ThirdPartyConfigForm,
+    TerminalScheduleForm,
+    TerminalMappingForm,
+    UserSyncForm,
+)
 from ..services.user_sync_service import UserSyncService
 from ..core.device_manager import DeviceManager
 
@@ -175,21 +180,26 @@ class TerminalSchedulesView(LoginRequiredMixin, View):
 class UserSyncView(LoginRequiredMixin, View):
     """Vue de synchronisation des utilisateurs"""
     
-    def get(self, request):
+    def get(self, request, mapping_form=None):
         terminals = _terminals_with_status()
         configs = ThirdPartyConfig.objects.filter(is_active=True).order_by('name')
-        
+
+        # Tous les mappings, pas seulement les actifs : un mapping desactive
+        # doit rester visible pour pouvoir etre reactive ou supprime, sinon il
+        # devient invisible et seul l'admin Django permet d'y revenir.
         mappings = TerminalThirdPartyMapping.objects.select_related(
             'terminal', 'config'
-        ).filter(is_active=True).order_by('terminal__sn')
-        
+        ).order_by('-is_active', 'terminal__sn')
+
         form = UserSyncForm(terminals=terminals, configs=configs)
 
         return render(request, 'devices/dashboard/user_sync.html', {
             'terminals': terminals,
             'configs': configs,
             'mappings': mappings,
+            'active_mappings_count': sum(1 for m in mappings if m.is_active),
             'form': form,
+            'mapping_form': mapping_form or TerminalMappingForm(),
             'connected_count': sum(1 for t in terminals if t.is_online),
         })
     
@@ -201,7 +211,13 @@ class UserSyncView(LoginRequiredMixin, View):
         configs = ThirdPartyConfig.objects.filter(is_active=True).order_by('name')
         
         action = request.POST.get('action', 'sync_from_service')
-        
+
+        if action == 'save_mapping':
+            return self._save_mapping(request)
+
+        if action == 'delete_mapping':
+            return self._delete_mapping(request)
+
         if action == 'push_to_terminal':
             terminal_id = request.POST.get('terminal_id')
             
@@ -269,7 +285,44 @@ class UserSyncView(LoginRequiredMixin, View):
                     messages.error(request, f'Erreur lors de la synchronisation: {str(e)}')
             else:
                 messages.error(request, 'Veuillez sélectionner un terminal.')
-        
+
+        return redirect('dashboard:user_sync')
+
+    # -- Associations terminal <-> service tiers ------------------------------
+    #
+    # Un mapping est le prerequis de toute synchronisation : sans lui,
+    # `UserSyncService` ne trouve aucune configuration pour le terminal. Le
+    # creer imposait jusqu'ici de passer par l'admin Django.
+
+    def _save_mapping(self, request):
+        """Cree ou met a jour une association. L'id vide vaut creation."""
+        mapping_id = request.POST.get('mapping_id') or None
+        instance = None
+        if mapping_id:
+            instance = get_object_or_404(TerminalThirdPartyMapping, pk=mapping_id)
+
+        form = TerminalMappingForm(request.POST, instance=instance)
+        if not form.is_valid():
+            # Le formulaire est re-rendu avec ses erreurs plutot que redirige :
+            # une redirection perdrait la saisie et le motif du refus.
+            for error in form.non_field_errors():
+                messages.error(request, error)
+            return self.get(request, mapping_form=form)
+
+        mapping = form.save()
+        messages.success(
+            request,
+            f'Association enregistrée : {mapping.terminal.short_label} ↔ {mapping.config.name}.'
+        )
+        return redirect('dashboard:user_sync')
+
+    def _delete_mapping(self, request):
+        mapping = get_object_or_404(
+            TerminalThirdPartyMapping, pk=request.POST.get('mapping_id')
+        )
+        label = f'{mapping.terminal.short_label} ↔ {mapping.config.name}'
+        mapping.delete()
+        messages.success(request, f'Association supprimée : {label}.')
         return redirect('dashboard:user_sync')
 
 

@@ -3,7 +3,12 @@ Formulaires Django pour le dashboard de gestion
 """
 
 from django import forms
-from ..models import ThirdPartyConfig, TerminalSchedule, TerminalThirdPartyMapping
+from ..models import (
+    Terminal,
+    ThirdPartyConfig,
+    TerminalSchedule,
+    TerminalThirdPartyMapping,
+)
 
 
 class ThirdPartyConfigForm(forms.ModelForm):
@@ -160,6 +165,53 @@ class TerminalScheduleForm(forms.ModelForm):
                 'class': 'w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500'
             }),
         }
+
+
+class TerminalMappingForm(forms.ModelForm):
+    """Association d'un terminal a un service tiers.
+
+    Sans mapping, `UserSyncView` echoue sur « Aucune configuration trouvee pour
+    ce terminal » et la synchronisation automatique des pointages ne fait rien.
+    C'etait jusqu'ici la seule operation vraiment bloquante qui imposait un
+    passage par l'admin Django.
+    """
+
+    class Meta:
+        model = TerminalThirdPartyMapping
+        fields = ['terminal', 'config', 'sync_users', 'sync_attendance', 'is_active']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Libelles des listes : `short_label` est le vocabulaire unique de
+        # l'application pour nommer un terminal.
+        self.fields['terminal'].queryset = Terminal.objects.order_by('sn')
+        self.fields['terminal'].label_from_instance = lambda t: t.short_label
+        self.fields['config'].queryset = ThirdPartyConfig.objects.order_by('name')
+        self.fields['config'].label_from_instance = (
+            lambda c: c.name if c.is_active else f'{c.name} (inactif)'
+        )
+        self.fields['terminal'].empty_label = 'Choisir un terminal'
+        self.fields['config'].empty_label = 'Choisir un service'
+
+    def clean(self):
+        """Traduit la contrainte d'unicite en message utile.
+
+        `unique_together` produit sinon un message generique qui ne dit pas
+        quoi faire. Ici, le mapping existe deja : il faut le modifier, pas le
+        recreer.
+        """
+        cleaned = super().clean()
+        terminal, config = cleaned.get('terminal'), cleaned.get('config')
+        if terminal and config:
+            existing = TerminalThirdPartyMapping.objects.filter(
+                terminal=terminal, config=config
+            ).exclude(pk=self.instance.pk).first()
+            if existing:
+                raise forms.ValidationError(
+                    f"{terminal.short_label} est déjà associé à « {config.name} ». "
+                    "Modifiez l'association existante plutôt que d'en créer une seconde."
+                )
+        return cleaned
 
 
 class UserSyncForm(forms.Form):
