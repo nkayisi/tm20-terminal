@@ -1,0 +1,38 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{% block title %}Connexion{% endblock %} — TM20 Manager</title>
+
+    {% comment %}
+    Même en-tête que la coquille applicative : c'est tout l'intérêt de ce
+    gabarit. La page de connexion était auparavant un document autonome qui
+    redéclarait sa propre configuration Tailwind, déjà divergente de l'autre.
+    {% endcomment %}
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('tm20-theme');
+          if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet" />
+    <link rel="stylesheet" href="{% static 'dist/app.css' %}" />
+    <script defer src="{% static 'js/app.js' %}"></script>
+  </head>
+
+  <body class="h-full font-sans">
+    {% block body %}{% endblock %}
+    {% include "ui/_toast_host.html" %}
+  </body>
+</html>

@@ -1,0 +1,27 @@
+{% load ui %}{% comment %}
+Bandeau d'alerte. Attend `tone` (success|danger|warning|info|neutral), `text`,
+et optionnellement `title` et `dismissible`.
+La couleur seule ne porte jamais l'information : chaque ton a son icône.
+{% endcomment %}
+<div class="flex items-start gap-3 rounded-lg border p-4 text-sm
+            {% if tone == 'success' %}bg-success-subtle border-success/30 text-success-text
+            {% elif tone == 'danger' %}bg-danger-subtle border-danger/30 text-danger-text
+            {% elif tone == 'warning' %}bg-warning-subtle border-warning/30 text-warning-text
+            {% elif tone == 'neutral' %}bg-neutral-subtle border-border text-neutral-text
+            {% else %}bg-info-subtle border-info/30 text-info-text{% endif %}"
+     role="{% if tone == 'danger' %}alert{% else %}status{% endif %}">
+  {% if tone == 'success' %}{% icon "check-circle-solid" "size-5 mt-px" %}
+  {% elif tone == 'danger' %}{% icon "x-circle-solid" "size-5 mt-px" %}
+  {% elif tone == 'warning' %}{% icon "exclamation-triangle-solid" "size-5 mt-px" %}
+  {% else %}{% icon "information-circle-solid" "size-5 mt-px" %}{% endif %}
+  <div class="min-w-0 flex-1">
+    {% if title %}<p class="font-medium">{{ title }}</p>{% endif %}
+    <div class="{% if title %}mt-0.5 {% endif %}">{{ text }}</div>
+  </div>
+  {% if dismissible %}
+    <button type="button" class="btn btn-ghost btn-sm -my-1 -mr-2 shrink-0"
+            aria-label="Fermer" onclick="this.closest('[role]').remove()">
+      {% icon "x-mark" "size-4" %}
+    </button>
+  {% endif %}
+</div>

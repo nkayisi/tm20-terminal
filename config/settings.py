@@ -28,6 +28,9 @@ def env_list(name: str, default: str = '') -> list:
 
 DEBUG = env_bool('DEBUG', '0')
 
+# Defini ici, et non plus bas : le bloc STORAGES en depend.
+RUNNING_TESTS = sys.argv[1:2] == ['test']
+
 # Clé secrète : un fallback n'est toléré qu'en mode DEBUG.
 # En production (DEBUG=0), l'absence de DJANGO_SECRET_KEY doit stopper le démarrage.
 _DEV_SECRET_KEY = 'dev-secret-key-change-in-production'
@@ -186,15 +189,37 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# WhiteNoise configuration
+# Sources versionnées : la feuille Tailwind compilée atterrit dans
+# `static/dist/`, `collectstatic` la reprend vers STATIC_ROOT.
+STATICFILES_DIRS = [BASE_DIR / 'static']
+
+# Le stockage à manifeste hache les noms de fichiers et exige que
+# `collectstatic` ait tourné. Django court-circuite le hachage quand DEBUG est
+# vrai (HashedFilesMixin._url), mais le runner de tests force DEBUG=False sans
+# lancer collectstatic : tout rendu contenant {% static %} y leverait alors
+# « Missing staticfiles manifest entry ». On ne l'active donc qu'en production.
+USE_MANIFEST_STATIC = not DEBUG and not RUNNING_TESTS
+
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": (
+            "whitenoise.storage.CompressedManifestStaticFilesStorage"
+            if USE_MANIFEST_STATIC
+            else "django.contrib.staticfiles.storage.StaticFilesStorage"
+        ),
     },
 }
+
+# Hors production, whitenoise sert directement depuis STATICFILES_DIRS via les
+# finders : aucun collectstatic n'est nécessaire pour voir un changement de CSS.
+# (Ce sont déjà les valeurs par défaut, qui valent settings.DEBUG ; on les pose
+# explicitement pour que le comportement ne dépende pas d'un défaut d'une
+# dépendance.)
+WHITENOISE_USE_FINDERS = not USE_MANIFEST_STATIC
+WHITENOISE_AUTOREFRESH = not USE_MANIFEST_STATIC
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -215,7 +240,6 @@ CACHES = {
 # Redis de production, et un simple `cache.clear()` y déclenche un FLUSHDB
 # qui efface la présence des terminaux (`tm20:connected_devices`), les
 # groupes Channels et les files `pending_cmd:*` en vol.
-RUNNING_TESTS = sys.argv[1:2] == ['test']
 
 if RUNNING_TESTS:
     CACHES = {

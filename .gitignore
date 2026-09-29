@@ -9,6 +9,8 @@ env/
 .venv/
 
 # Django
+# Sortie du build Tailwind : regeneree a chaque build.
+/static/dist/
 *.log
 local_settings.py
 db.sqlite3

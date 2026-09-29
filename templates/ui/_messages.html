@@ -1,0 +1,12 @@
+{% load ui %}{% comment %}
+Messages Django, inclus une seule fois dans base.html.
+Ce bloc était auparavant recopié dans quatre gabarits, avec des couleurs qui
+avaient déjà divergé d'une page à l'autre.
+{% endcomment %}
+{% if messages %}
+  <div class="mb-6 space-y-3">
+    {% for message in messages %}
+      {% include "ui/_alert.html" with tone=message.tags|tone_for_message text=message dismissible=True %}
+    {% endfor %}
+  </div>
+{% endif %}

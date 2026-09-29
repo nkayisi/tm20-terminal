@@ -1,0 +1,25 @@
+{% load ui %}{% comment %}
+Navigation latérale, rendue depuis le manifeste de devices/templatetags/ui.py.
+`aria-current="page"` porte l'état actif pour les lecteurs d'écran ; la couleur
+seule ne suffirait pas.
+{% endcomment %}
+<nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Navigation principale">
+  {% for section in sections %}
+    {% if section.label %}
+      <p class="px-3 pt-5 pb-2 text-xs font-semibold uppercase tracking-wider text-content-subtle">
+        {{ section.label }}
+      </p>
+    {% endif %}
+    {% for item in section.items %}
+      <a href="{% url item.url %}"
+         {% if item.is_current %}aria-current="page"{% endif %}
+         class="flex items-center gap-3 rounded-md border-l-[3px] px-3 py-2.5 text-sm font-medium
+                {% if item.is_current %}border-brand bg-brand-subtle text-brand-text
+                {% else %}border-transparent text-content-secondary hover:bg-surface-hover hover:text-content{% endif %}"
+         style="transition-property: background-color, color, border-color; transition-duration: 150ms">
+        {% icon item.icon "size-5" %}
+        <span class="truncate">{{ item.label }}</span>
+      </a>
+    {% endfor %}
+  {% endfor %}
+</nav>

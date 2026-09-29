@@ -41,8 +41,12 @@ services:
       TM20_HEARTBEAT_INTERVAL: ${TM20_HEARTBEAT_INTERVAL:-30}
       TM20_CONNECTION_TIMEOUT: ${TM20_CONNECTION_TIMEOUT:-600}
       TM20_REQUIRE_WHITELIST: ${TM20_REQUIRE_WHITELIST:-0}
+    # Pas de volume sur /app/staticfiles : un volume nomme n'est initialise qu'a
+    # sa creation, donc apres un redeploiement il continue de servir les anciens
+    # fichiers haches avec le nouveau manifeste -> 404 systematiques. whitenoise
+    # lit le systeme de fichiers DANS le conteneur, aucun nginx ne partage ce
+    # dossier : le volume n'apportait rien et cassait les mises a jour.
     volumes:
-      - static_volume:/app/staticfiles
       - media_volume:/app/media
       - logs_volume:/app/logs
     networks:
@@ -139,7 +143,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  static_volume:
   media_volume:
   logs_volume:
 

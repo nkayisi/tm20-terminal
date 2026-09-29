@@ -1,0 +1,265 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Tokens sémantiques
+   --------------------------------------------------------------------------
+   Chaque couleur est un triplet HSL nu, sans la fonction hsl() : c'est ce qui
+   permet à Tailwind de composer l'alpha (`bg-brand/10`) sans qu'on invente un
+   token par niveau d'opacité.
+
+   Le mode sombre est la redéfinition de ce même bloc sous `html.dark`. Aucun
+   gabarit ne contient de variante `dark:` — un thème qui se décline classe par
+   classe finit toujours par diverger.
+   ========================================================================== */
+@layer base {
+  :root {
+    color-scheme: light;
+
+    --surface-page:   210 20% 98%;
+    --surface-card:   0 0% 100%;
+    --surface-raised: 0 0% 100%;
+    --surface-sunken: 210 20% 96%;
+    --surface-hover:  210 20% 95%;
+
+    --border-subtle: 214 20% 90%;
+    /* 3:1 sur une carte : seuil WCAG pour qu'une bordure identifie un
+       composant. C'est celle des champs de saisie, pas des séparateurs. */
+    --border-strong: 214 14% 59%;
+
+    --text-primary:   222 22% 14%;
+    --text-secondary: 218 12% 40%;
+    --text-subtle:    218 10% 46%;
+    --text-inverted:  0 0% 100%;
+
+    /* Assombri jusqu'à ce que le blanc posé dessus atteigne 4.5:1 : un
+       sky-500 n'y arrive pas, et c'est la couleur des boutons primaires. */
+    --brand:        200 98% 36%;
+    --brand-hover:  201 96% 29%;
+    --brand-subtle: 204 94% 94%;
+    --brand-on:     0 0% 100%;
+    /* Teinte de texte sur fond `brand-subtle` : `brand` lui-même n'y
+       atteint que 4.14:1. Les autres tons ont déjà leur variante -text. */
+    --brand-text:   201 96% 34%;
+
+    --success: 160 84% 30%;  --success-subtle: 152 76% 94%;  --success-text: 158 64% 22%;
+    --warning: 25 90% 38%;   --warning-subtle: 48 96% 91%;   --warning-text: 26 90% 26%;
+    --danger:  0 72% 44%;    --danger-subtle:  0 86% 96%;    --danger-text:  0 70% 35%;
+    --info:    217 79% 45%;  --info-subtle:    214 95% 95%;  --info-text:    221 70% 36%;
+    --neutral: 218 12% 42%;  --neutral-subtle: 210 20% 95%;  --neutral-text: 218 14% 30%;
+
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+
+    --shadow-1: 0 1px 2px 0 hsl(222 22% 14% / .06);
+    --shadow-2: 0 4px 12px -2px hsl(222 22% 14% / .10);
+    --shadow-3: 0 12px 28px -6px hsl(222 22% 14% / .16);
+  }
+
+  html.dark {
+    color-scheme: dark;
+
+    --surface-page:   222 22% 9%;
+    --surface-card:   222 20% 13%;
+    --surface-raised: 222 18% 16%;
+    --surface-sunken: 222 24% 7%;
+    --surface-hover:  222 16% 19%;
+
+    --border-subtle: 222 14% 22%;
+    --border-strong: 222 12% 44%;
+
+    --text-primary:   210 20% 96%;
+    --text-secondary: 215 14% 74%;
+    --text-subtle:    215 12% 60%;
+    --text-inverted:  222 22% 12%;
+
+    --brand:        199 89% 60%;
+    --brand-hover:  199 92% 70%;
+    --brand-subtle: 200 60% 18%;
+    --brand-on:     222 30% 10%;
+    --brand-text:   199 89% 66%;
+
+    --success: 152 65% 62%;  --success-subtle: 158 45% 15%;  --success-text: 152 60% 74%;
+    --warning: 42 90% 62%;   --warning-subtle: 30 45% 16%;   --warning-text:  42 90% 74%;
+    --danger:  0 85% 70%;    --danger-subtle:  0 40% 18%;    --danger-text:   0 85% 78%;
+    --info:    214 90% 70%;  --info-subtle:  218 42% 20%;    --info-text:   214 90% 78%;
+    --neutral: 215 14% 68%;  --neutral-subtle: 222 16% 19%;  --neutral-text: 215 14% 74%;
+
+    /* Une ombre portée est invisible sur fond sombre : la profondeur y passe
+       par un liseré, doublé d'une ombre franche pour les surfaces flottantes. */
+    --shadow-1: 0 0 0 1px hsl(222 14% 24%);
+    --shadow-2: 0 0 0 1px hsl(222 14% 26%), 0 4px 12px -2px hsl(0 0% 0% / .5);
+    --shadow-3: 0 0 0 1px hsl(222 14% 28%), 0 16px 32px -8px hsl(0 0% 0% / .6);
+  }
+
+  /* Alpine retire cet attribut une fois initialise : sans la regle, le
+     contenu conditionnel apparait brievement avant l'hydratation. */
+  [x-cloak] { display: none !important; }
+
+  html {
+    /* Texte plus net sur macOS, où le rendu par défaut alourdit les graisses. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-surface-page text-content;
+  }
+
+  h1, h2, h3 {
+    /* Évite le mot orphelin sur la dernière ligne d'un titre. */
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Un anneau de focus visible est une exigence d'accessibilité : on le rend
+     cohérent partout plutôt que de laisser chaque composant le redéfinir. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand/50 ring-offset-2 ring-offset-surface-page;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .01ms !important;
+    }
+  }
+}
+
+/* ==========================================================================
+   Composants
+   ========================================================================== */
+@layer components {
+  /* Densité confortable : c'est un outil d'exploitation consulté
+     ponctuellement, pas un mur de supervision permanent. */
+  .card {
+    @apply bg-surface-card border border-border rounded-lg shadow-1;
+  }
+
+  .card-pad { @apply p-5; }
+
+  /* Chiffres qui se mettent à jour en direct : sans chasse fixe, la largeur
+     varie à chaque rafraîchissement et la ligne « saute ». */
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* Tuile d'indicateur. La couleur passe par un attribut de données, plus par
+     un `style=` inline qui détournait les variables privées de Tailwind. */
+  .kpi { @apply card card-pad relative overflow-hidden; }
+  .kpi::before {
+    content: '';
+    @apply absolute inset-x-0 top-0 h-[3px];
+    background: hsl(var(--tone, var(--brand)));
+  }
+  .kpi[data-tone="brand"]   { --tone: var(--brand); }
+  .kpi[data-tone="success"] { --tone: var(--success); }
+  .kpi[data-tone="warning"] { --tone: var(--warning); }
+  .kpi[data-tone="danger"]  { --tone: var(--danger); }
+  .kpi[data-tone="info"]    { --tone: var(--info); }
+  .kpi[data-tone="neutral"] { --tone: var(--neutral); }
+
+  /* Champs de formulaire stylés par sélecteur d'attribut : aucune classe
+     Tailwind ne redescend dans les widgets Python. Il suffit qu'un formulaire
+     porte la classe `.form`. */
+  .form :is(
+    input[type="text"], input[type="url"], input[type="password"],
+    input[type="number"], input[type="time"], input[type="date"],
+    input[type="email"], input[type="search"], input[type="tel"],
+    select, textarea
+  ) {
+    @apply h-10 w-full rounded-md border border-border-strong bg-surface-card px-3 text-sm
+           text-content placeholder:text-content-subtle
+           focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/40
+           disabled:cursor-not-allowed disabled:opacity-60;
+    transition-property: border-color, box-shadow;
+    transition-duration: 150ms;
+  }
+  .form textarea { @apply h-auto py-2 leading-relaxed; }
+  .form input[type="checkbox"] {
+    @apply size-4 rounded border-border-strong text-brand focus:ring-2 focus:ring-brand/40;
+  }
+  .form [aria-invalid="true"] { @apply border-danger focus:ring-danger/40; }
+  .form label { @apply block text-sm font-medium text-content-secondary mb-1.5; }
+
+  /* Boutons. `scale(.96)` à l'appui donne un retour tactile ; en dessous de
+     .95 l'effet devient caricatural. La transition ne cible que des propriétés
+     composables par le GPU. */
+  .btn {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-md px-4
+           text-sm font-medium cursor-pointer select-none
+           active:scale-[0.96] disabled:pointer-events-none disabled:opacity-50;
+    transition-property: background-color, border-color, color, box-shadow, transform, scale;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  .btn-primary   { @apply bg-brand text-brand-on hover:bg-brand-hover shadow-1; }
+  .btn-secondary { @apply bg-surface-card text-content border border-border hover:bg-surface-hover; }
+  .btn-ghost     { @apply text-content-secondary hover:bg-surface-hover hover:text-content; }
+  .btn-danger    { @apply bg-danger text-white hover:brightness-110 shadow-1; }
+  .btn-sm        { @apply h-8 px-3 text-xs; }
+
+  /* Pastille d'état. Un seul vocabulaire de tons pour toute l'application :
+     « en attente » ne peut plus être ambre ici et jaune ailleurs. */
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1
+           text-xs font-medium whitespace-nowrap;
+  }
+  .badge[data-tone="brand"]   { @apply bg-brand-subtle text-brand-text; }
+  .badge[data-tone="success"] { @apply bg-success-subtle text-success-text; }
+  .badge[data-tone="warning"] { @apply bg-warning-subtle text-warning-text; }
+  .badge[data-tone="danger"]  { @apply bg-danger-subtle text-danger-text; }
+  .badge[data-tone="info"]    { @apply bg-info-subtle text-info-text; }
+  .badge[data-tone="neutral"] { @apply bg-neutral-subtle text-neutral-text; }
+
+  .badge-dot { @apply size-1.5 rounded-full bg-current; }
+
+  /* Tableaux : une table large doit défiler dans son propre conteneur, jamais
+     faire défiler la page horizontalement. */
+  .table-wrap { @apply overflow-x-auto; }
+  .table { @apply w-full text-sm; }
+  .table thead th {
+    @apply px-4 py-3 text-left text-xs font-medium uppercase tracking-wide
+           text-content-subtle border-b border-border whitespace-nowrap;
+  }
+  .table tbody td { @apply px-4 py-3 border-b border-border/70 align-middle; }
+  .table tbody tr:last-child td { @apply border-b-0; }
+  .table tbody tr { transition: background-color 150ms; }
+  .table tbody tr:hover { @apply bg-surface-hover; }
+
+  .link { @apply text-brand hover:text-brand-hover underline-offset-2 hover:underline; }
+}
+
+/* ==========================================================================
+   COUCHE DE COMPATIBILITÉ — TEMPORAIRE
+   --------------------------------------------------------------------------
+   Ces règles vivaient dans un <style> de base.html. Les pages pas encore
+   reprises s'en servent encore ; elles disparaissent au fur et à mesure de la
+   migration, et ce bloc entier doit partir avec la dernière d'entre elles.
+   Ne rien ajouter ici.
+   ========================================================================== */
+@layer components {
+  .stat-card { @apply card card-pad relative overflow-hidden; }
+  .stat-card::before {
+    content: '';
+    @apply absolute inset-x-0 top-0 h-1;
+    /* Les gabarits posent encore la couleur via `style="--tw-gradient-from: #..."`,
+       un détournement de variable interne à Tailwind. `.kpi[data-tone]` le
+       remplace sur les pages migrées. */
+    background: var(--tw-gradient-from, hsl(var(--brand)));
+  }
+
+  .card-hover { transition: box-shadow 200ms, transform 200ms; }
+  .card-hover:hover { @apply shadow-2; transform: translateY(-2px); }
+
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: hsl(var(--surface-sunken)); }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--border-strong)); border-radius: 3px;
+  }
+}

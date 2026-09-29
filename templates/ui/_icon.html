@@ -1,0 +1,5 @@
+{% load static %}{% comment %}
+Icône issue du sprite unique. `aria-hidden` par défaut : une icône est
+décorative tant qu'elle accompagne un texte. Quand elle est seule (bouton
+icône), c'est au bouton de porter un `aria-label`.
+{% endcomment %}<svg class="shrink-0 {{ css_class }}" aria-hidden="true" focusable="false"><use href="{% static 'icons/sprite.svg' %}#i-{{ name }}" /></svg>

@@ -30,6 +30,39 @@ RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir gunicorn gevent
 
+# ------------------------------------------------------------------
+# Tailwind CLI autonome.
+# Binaire statique : aucun Node, aucun node_modules, aucun lockfile npm
+# dans un projet par ailleurs 100 % Python.
+# v3 epinglee : la v4 est CSS-first et rendrait `tailwind.config.js` inerte.
+# TARGETARCH est indispensable -- l'image se construit en arm64 ici, et
+# l'asset s'appelle alors `tailwindcss-linux-arm64`.
+# ------------------------------------------------------------------
+ARG TAILWIND_VERSION=3.4.17
+ARG TARGETARCH
+RUN set -eux; \
+    case "${TARGETARCH:-amd64}" in \
+      amd64) TW_ARCH=x64 ;; \
+      arm64) TW_ARCH=arm64 ;; \
+      *) echo "architecture non supportee: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    apt-get update && apt-get install -y --no-install-recommends curl ca-certificates; \
+    curl -fsSL -o /usr/local/bin/tailwindcss \
+      "https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_VERSION}/tailwindcss-linux-${TW_ARCH}"; \
+    chmod +x /usr/local/bin/tailwindcss; \
+    /usr/local/bin/tailwindcss --help > /dev/null; \
+    rm -rf /var/lib/apt/lists/*
+
+# Compilation de la feuille de style. Le `content` de tailwind.config.js
+# balaie templates/ et devices/ : ils doivent etre presents pour que le purge
+# conserve les classes reellement utilisees.
+WORKDIR /app
+COPY tailwind.config.js ./
+COPY static/ ./static/
+COPY templates/ ./templates/
+COPY devices/ ./devices/
+RUN tailwindcss -i static/src/app.css -o static/dist/app.css --minify
+
 
 # ============================================
 # Stage 2: Runtime de Production
@@ -55,6 +88,12 @@ COPY --from=builder /opt/venv /opt/venv
 
 # Copie du code source
 COPY . .
+
+# ORDRE CRITIQUE : `static/dist/app.css` est genere au build et gitignore, donc
+# absent du contexte sur un clone propre. Il doit etre injecte AVANT
+# `collectstatic` -- sinon le manifeste ne le contient pas, `{% static %}` leve
+# « Missing staticfiles manifest entry » et TOUTES les pages renvoient 500.
+COPY --from=builder /app/static/dist/app.css ./static/dist/app.css
 
 # Collecte des fichiers statiques.
 # collectstatic importe les settings : avec DEBUG=0, une DJANGO_SECRET_KEY est

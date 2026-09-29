@@ -1,0 +1,7 @@
+{% comment %}
+Zone d'accueil des toasts. `aria-live="polite"` : annoncé par un lecteur
+d'écran sans lui voler le focus.
+{% endcomment %}
+<div id="toast-host"
+     class="pointer-events-none fixed inset-x-4 bottom-4 z-[100] flex flex-col items-end gap-2 sm:left-auto sm:right-4"
+     role="status" aria-live="polite" aria-atomic="false"></div>
