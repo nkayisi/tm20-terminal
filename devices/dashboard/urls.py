@@ -11,6 +11,9 @@ app_name = 'dashboard'
 
 urlpatterns = [
     path('', views.DashboardView.as_view(), name='index'),
+
+    # Reference visuelle du design system (diagnostic).
+    path('__styleguide/', views.StyleguideView.as_view(), name='styleguide'),
     path('api/', views.DashboardAPIView.as_view(), name='api'),
     path('api/terminals/', views.TerminalsAPIView.as_view(), name='terminals'),
     path('api/logs/', views.LogsAPIView.as_view(), name='logs'),

@@ -3,9 +3,12 @@ Vues du dashboard temps réel
 """
 
 import json
+import re
 from datetime import datetime, timedelta
+from pathlib import Path
 
-from django.http import JsonResponse
+from django.conf import settings
+from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 from django.views import View
@@ -47,6 +50,42 @@ class DashboardView(LoginRequiredMixin, View):
     
     def get(self, request):
         return render(request, 'devices/dashboard/index.html')
+
+
+class StyleguideView(LoginRequiredMixin, View):
+    """Référence visuelle du design system.
+
+    Rend chaque composant dans chaque ton et chaque état, sur une seule page.
+    Vérifier les deux thèmes revient alors à basculer un bouton, au lieu de
+    parcourir toutes les pages de l'application. C'est aussi le seul endroit où
+    un tracé d'icône erroné se voit : il s'affiche vide.
+
+    Réservée au diagnostic : superutilisateurs, ou n'importe qui en DEBUG.
+    """
+
+    TONES = ['brand', 'success', 'warning', 'danger', 'info', 'neutral']
+    SURFACES = ['page', 'card', 'sunken', 'raised']
+    ALERT_TONES = ['success', 'danger', 'warning', 'info']
+
+    def get(self, request):
+        if not (settings.DEBUG or request.user.is_superuser):
+            raise Http404()
+        return render(request, 'devices/dashboard/styleguide.html', {
+            'tones': self.TONES,
+            'surfaces': self.SURFACES,
+            'alert_tones': self.ALERT_TONES,
+            'icons': self._sprite_symbols(),
+            'page_title': 'Référence visuelle',
+        })
+
+    @staticmethod
+    def _sprite_symbols():
+        """Noms lus dans le sprite : la page suit le fichier sans entretien."""
+        sprite = Path(settings.BASE_DIR) / 'static' / 'icons' / 'sprite.svg'
+        try:
+            return sorted(re.findall(r'<symbol id="i-([^"]+)"', sprite.read_text()))
+        except OSError:
+            return []
 
 
 class DashboardAPIView(LoginRequiredMixin, View):

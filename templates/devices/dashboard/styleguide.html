@@ -1,0 +1,163 @@
+{% extends "devices/dashboard/base.html" %}
+{% load ui %}
+
+{% block title %}Référence visuelle{% endblock %}
+{% block page_title %}Référence visuelle{% endblock %}
+
+{% block content %}
+<div class="space-y-10">
+
+  <div class="card card-pad">
+    <h2 class="text-lg font-semibold">Référence du design system</h2>
+    <p class="mt-1.5 text-sm text-content-secondary">
+      Chaque composant dans chaque ton et chaque état. Basculez le thème depuis
+      la barre du haut : tout ce qui est ci-dessous doit rester lisible dans les
+      deux. C'est le harnais de régression du design system — si un composant
+      n'apparaît pas ici, il n'est pas vérifié.
+    </p>
+  </div>
+
+  <section>
+    <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-content-subtle">Surfaces et texte</h3>
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {% for s in surfaces %}
+        <div class="rounded-lg border border-border p-4 bg-surface-{{ s }}">
+          <p class="font-mono text-xs text-content-subtle">surface-{{ s }}</p>
+          <p class="mt-2 text-sm">Texte principal</p>
+          <p class="text-sm text-content-secondary">Texte secondaire</p>
+          <p class="text-sm text-content-subtle">Texte discret</p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section>
+    <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-content-subtle">Indicateurs</h3>
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      {% for t in tones %}
+        <div class="kpi" data-tone="{{ t }}">
+          <p class="text-xs font-medium text-content-subtle">{{ t }}</p>
+          <p class="mt-1 text-2xl font-bold tabular">1 284</p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section>
+    <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-content-subtle">Pastilles d'état</h3>
+    <div class="card card-pad flex flex-wrap gap-3">
+      {% for t in tones %}
+        <span class="badge" data-tone="{{ t }}"><span class="badge-dot"></span>{{ t }}</span>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section>
+    <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-content-subtle">Boutons</h3>
+    <div class="card card-pad space-y-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <button class="btn btn-primary">Principal</button>
+        <button class="btn btn-secondary">Secondaire</button>
+        <button class="btn btn-ghost">Discret</button>
+        <button class="btn btn-danger">Destructif</button>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <button class="btn btn-primary btn-sm">{% icon "plus" "size-4" %}Avec icône</button>
+        <button class="btn btn-secondary btn-sm">Petit</button>
+        <button class="btn btn-primary" disabled>Désactivé</button>
+        <button class="btn btn-secondary" disabled>Désactivé</button>
+      </div>
+      <p class="text-xs text-content-subtle">
+        Survolez, gardez enfoncé (retour d'appui à 0.96), et parcourez au clavier
+        pour vérifier l'anneau de focus.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-content-subtle">Alertes</h3>
+    <div class="space-y-3">
+      {% for t in alert_tones %}
+        {% include "ui/_alert.html" with tone=t title=t|capfirst text="Chaque ton porte son icône : la couleur seule ne doit jamais être le seul porteur de l'information." dismissible=True %}
+      {% endfor %}
+    </div>
+  </section>
+
+  <section>
+    <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-content-subtle">Formulaire</h3>
+    <form class="form card card-pad grid gap-5 sm:grid-cols-2">
+      <div>
+        <label for="sg-text">Champ texte</label>
+        <input type="text" id="sg-text" placeholder="Texte d'exemple" />
+      </div>
+      <div>
+        <label for="sg-select">Liste déroulante</label>
+        <select id="sg-select"><option>Première option</option><option>Seconde option</option></select>
+      </div>
+      <div>
+        <label for="sg-err">Champ en erreur</label>
+        <input type="text" id="sg-err" aria-invalid="true" value="Valeur refusée" />
+        <p class="mt-1.5 text-sm text-danger-text" role="alert">Message d'erreur sous le champ concerné.</p>
+      </div>
+      <div>
+        <label for="sg-dis">Champ désactivé</label>
+        <input type="text" id="sg-dis" value="Non modifiable" disabled />
+      </div>
+      <div class="sm:col-span-2">
+        <label for="sg-area">Zone de texte</label>
+        <textarea id="sg-area" rows="2" placeholder="Plusieurs lignes"></textarea>
+      </div>
+      <div class="flex items-center gap-2 sm:col-span-2">
+        <input type="checkbox" id="sg-check" checked />
+        <label for="sg-check" class="!mb-0">Case à cocher</label>
+      </div>
+    </form>
+  </section>
+
+  <section>
+    <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-content-subtle">Tableau</h3>
+    <div class="card table-wrap">
+      <table class="table">
+        <thead><tr><th>Terminal</th><th>Statut</th><th class="text-right">Pointages</th><th>Dernière activité</th></tr></thead>
+        <tbody>
+          <tr><td class="font-medium">Entrée principale</td><td><span class="badge" data-tone="success"><span class="badge-dot"></span>En ligne</span></td><td class="text-right tabular">1 284</td><td class="text-content-secondary">à l'instant</td></tr>
+          <tr><td class="font-medium">Atelier</td><td><span class="badge" data-tone="warning"><span class="badge-dot"></span>Inactif</span></td><td class="text-right tabular">312</td><td class="text-content-secondary">il y a 4 min</td></tr>
+          <tr><td class="font-medium">Entrepôt</td><td><span class="badge" data-tone="danger"><span class="badge-dot"></span>Hors ligne</span></td><td class="text-right tabular">0</td><td class="text-content-secondary">il y a 3 h</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-2 text-xs text-content-subtle">
+      Les colonnes chiffrées utilisent des chiffres à chasse fixe : sans cela, un
+      compteur qui se rafraîchit fait sauter la largeur de la colonne.
+    </p>
+  </section>
+
+  <section>
+    <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-content-subtle">Notifications</h3>
+    <div class="card card-pad flex flex-wrap gap-3">
+      {% for t in alert_tones %}
+        <button class="btn btn-secondary btn-sm"
+                onclick="tm20.toast('Notification de type {{ t }}.', '{{ t }}')">{{ t }}</button>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section>
+    <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-content-subtle">
+      Icônes <span class="font-normal normal-case tracking-normal">({{ icons|length }} symboles)</span>
+    </h3>
+    <div class="card card-pad grid grid-cols-3 gap-4 sm:grid-cols-5 lg:grid-cols-8">
+      {% for name in icons %}
+        <div class="flex flex-col items-center gap-2 text-center">
+          {% icon name "size-6 text-content-secondary" %}
+          <span class="break-all font-mono text-[10px] leading-tight text-content-subtle">{{ name }}</span>
+        </div>
+      {% endfor %}
+    </div>
+    <p class="mt-2 text-xs text-content-subtle">
+      Un symbole vide signale un tracé erroné : c'est le seul moyen de le voir.
+    </p>
+  </section>
+
+</div>
+{% endblock %}
