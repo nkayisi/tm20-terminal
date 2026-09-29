@@ -24,14 +24,16 @@ register = template.Library()
 # `'attendance' in url_name` : un futur `attendance_detail` aurait allumé
 # l'entrée « Sync Pointages » par accident. Une appartenance à un ensemble ne
 # se trompe pas.
+# « Vue d'ensemble » a ete retiree : ses indicateurs existent deja sur le
+# monitoring et ses quatre cartes-boutons dupliquaient exactement cette barre.
+# « Horaires » est hors navigation pour l'instant ; la page reste joignable par
+# son URL et reviendra comme onglet de la fiche terminal.
 NAV_SECTIONS = [
     {
         'label': None,
         'items': [
             {'url': 'dashboard:index', 'label': 'Monitoring temps réel',
              'icon': 'bolt', 'match': {'index'}},
-            {'url': 'dashboard:management', 'label': "Vue d'ensemble",
-             'icon': 'squares-2x2', 'match': {'management'}},
         ],
     },
     {
@@ -44,8 +46,6 @@ NAV_SECTIONS = [
              'icon': 'user-group', 'match': {'user_sync'}},
             {'url': 'dashboard:attendance_sync', 'label': 'Sync pointages',
              'icon': 'clipboard-list', 'match': {'attendance_sync'}},
-            {'url': 'dashboard:schedules', 'label': 'Horaires',
-             'icon': 'calendar', 'match': {'schedules', 'schedules_terminal'}},
         ],
     },
 ]

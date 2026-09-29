@@ -6,7 +6,7 @@ Pointages{% endblock %} {% block content %}
   <div class="space-y-2">
     {% for message in messages %}
     <div
-      class="p-4 rounded-lg border {% if message.tags == 'success' %}bg-green-50 border-green-200 text-green-800{% elif message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% elif message.tags == 'info' %}bg-blue-50 border-blue-200 text-blue-800{% else %}bg-yellow-50 border-yellow-200 text-yellow-800{% endif %}"
+      class="p-4 rounded-lg border {% if message.tags == 'success' %}bg-success-subtle border-success/30 text-success-text{% elif message.tags == 'error' %}bg-danger-subtle border-danger/30 text-danger-text{% elif message.tags == 'info' %}bg-info-subtle border-info/30 text-info-text{% else %}bg-warning-subtle border-warning/30 text-warning-text{% endif %}"
     >
       <div class="flex items-center">
         <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -34,10 +34,10 @@ Pointages{% endblock %} {% block content %}
   <!-- Page Header -->
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">
+      <h1 class="text-3xl font-bold text-content">
         Synchronisation Pointages
       </h1>
-      <p class="mt-1 text-sm text-gray-500">
+      <p class="mt-1 text-sm text-content-subtle">
         Envoyez automatiquement les pointages vers vos systèmes externes
       </p>
     </div>
@@ -46,7 +46,7 @@ Pointages{% endblock %} {% block content %}
       <input type="hidden" name="action" value="sync_all" />
       <button
         type="submit"
-        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all duration-200"
+        class="inline-flex items-center px-4 py-2 text-sm font-medium text-brand-on bg-brand rounded-lg hover:bg-brand-hover transition-all duration-200"
       >
         <svg
           class="w-5 h-5 mr-2"
@@ -69,21 +69,20 @@ Pointages{% endblock %} {% block content %}
   <!-- Stats Grid -->
   <div class="grid grid-cols-1 gap-6 sm:grid-cols-4">
     <div
-      class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-6"
-      style="--tw-gradient-from: #f59e0b; --tw-gradient-to: #d97706"
+      class="kpi" data-tone="warning"
     >
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium text-gray-600">En Attente</p>
-          <p class="mt-2 text-3xl font-bold text-gray-900">
+          <p class="text-sm font-medium text-content-secondary">En Attente</p>
+          <p class="mt-2 text-3xl font-bold text-content">
             {{ stats.pending }}
           </p>
         </div>
         <div
-          class="w-12 h-12 rounded-lg bg-yellow-50 flex items-center justify-center"
+          class="w-12 h-12 rounded-lg bg-warning-subtle flex items-center justify-center"
         >
           <svg
-            class="w-6 h-6 text-yellow-600"
+            class="w-6 h-6 text-warning"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -100,19 +99,18 @@ Pointages{% endblock %} {% block content %}
     </div>
 
     <div
-      class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-6"
-      style="--tw-gradient-from: #10b981; --tw-gradient-to: #059669"
+      class="kpi" data-tone="success"
     >
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium text-gray-600">Envoyés</p>
-          <p class="mt-2 text-3xl font-bold text-gray-900">{{ stats.sent }}</p>
+          <p class="text-sm font-medium text-content-secondary">Envoyés</p>
+          <p class="mt-2 text-3xl font-bold text-content">{{ stats.sent }}</p>
         </div>
         <div
-          class="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center"
+          class="w-12 h-12 rounded-lg bg-success-subtle flex items-center justify-center"
         >
           <svg
-            class="w-6 h-6 text-green-600"
+            class="w-6 h-6 text-success"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -129,21 +127,20 @@ Pointages{% endblock %} {% block content %}
     </div>
 
     <div
-      class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-6"
-      style="--tw-gradient-from: #ef4444; --tw-gradient-to: #dc2626"
+      class="kpi" data-tone="danger"
     >
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium text-gray-600">Échoués</p>
-          <p class="mt-2 text-3xl font-bold text-gray-900">
+          <p class="text-sm font-medium text-content-secondary">Échoués</p>
+          <p class="mt-2 text-3xl font-bold text-content">
             {{ stats.failed }}
           </p>
         </div>
         <div
-          class="w-12 h-12 rounded-lg bg-red-50 flex items-center justify-center"
+          class="w-12 h-12 rounded-lg bg-danger-subtle flex items-center justify-center"
         >
           <svg
-            class="w-6 h-6 text-red-600"
+            class="w-6 h-6 text-danger"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -160,24 +157,23 @@ Pointages{% endblock %} {% block content %}
     </div>
 
     <div
-      class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-6"
-      style="--tw-gradient-from: #0ea5e9; --tw-gradient-to: #0284c7"
+      class="kpi" data-tone="brand"
     >
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium text-gray-600">Taux de Succès</p>
+          <p class="text-sm font-medium text-content-secondary">Taux de Succès</p>
           {% with total=stats.pending|add:stats.sent|add:stats.failed %}
-          <p class="mt-2 text-3xl font-bold text-gray-900">
+          <p class="mt-2 text-3xl font-bold text-content">
             {% if total > 0 %} {% widthratio stats.sent total 100 %}% {% else %}
             0% {% endif %}
           </p>
           {% endwith %}
         </div>
         <div
-          class="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center"
+          class="w-12 h-12 rounded-lg bg-info-subtle flex items-center justify-center"
         >
           <svg
-            class="w-6 h-6 text-blue-600"
+            class="w-6 h-6 text-info"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -196,11 +192,11 @@ Pointages{% endblock %} {% block content %}
 
   <!-- Dead Letter Alert -->
   {% if stats.failed > 0 %}
-  <div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+  <div class="bg-danger-subtle border-l-4 border-danger p-4 rounded-lg">
     <div class="flex">
       <div class="flex-shrink-0">
         <svg
-          class="h-5 w-5 text-red-400"
+          class="h-5 w-5 text-danger"
           fill="currentColor"
           viewBox="0 0 20 20"
         >
@@ -212,7 +208,7 @@ Pointages{% endblock %} {% block content %}
         </svg>
       </div>
       <div class="ml-3 flex-1">
-        <p class="text-sm text-red-700">
+        <p class="text-sm text-danger-text">
           <strong class="font-medium"
             >{{ stats.failed }} pointages en échec (Dead-Letter)</strong
           >
@@ -225,7 +221,7 @@ Pointages{% endblock %} {% block content %}
             <button
               type="submit"
               onclick="return confirm('Réinitialiser tous les pointages échoués pour un nouveau retry ?');"
-              class="text-sm font-medium text-red-700 hover:text-red-900 underline"
+              class="text-sm font-medium text-danger-text hover:text-danger-text underline"
             >
               Réinitialiser pour retry
             </button>
@@ -238,65 +234,65 @@ Pointages{% endblock %} {% block content %}
 
   <!-- Configurations -->
   <div
-    class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+    class="bg-surface-card rounded-xl shadow-sm border border-border overflow-hidden"
   >
-    <div class="px-6 py-4 border-b border-gray-200">
-      <h3 class="text-lg font-semibold text-gray-900">
+    <div class="px-6 py-4 border-b border-border">
+      <h3 class="text-lg font-semibold text-content">
         Configurations de Synchronisation
       </h3>
     </div>
     {% if configs %}
     <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-border">
+        <thead class="bg-surface-sunken">
           <tr>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
             >
               Configuration
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
             >
               Endpoint
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
             >
               Intervalle
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
             >
               Statut
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
             >
               Actions
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="bg-surface-card divide-y divide-border">
           {% for config in configs %}
-          <tr class="hover:bg-gray-50 transition-colors duration-150">
+          <tr class="hover:bg-surface-hover transition-colors duration-150">
             <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm font-medium text-gray-900">
+              <div class="text-sm font-medium text-content">
                 {{ config.name }}
               </div>
-              <div class="text-sm text-gray-500">{{ config.base_url }}</div>
+              <div class="text-sm text-content-subtle">{{ config.base_url }}</div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
-              <code class="text-xs text-gray-600"
+              <code class="text-xs text-content-secondary"
                 >{{ config.attendance_endpoint|default:"-" }}</code
               >
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-content-subtle">
               {{ config.sync_interval_minutes }} min
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <span
-                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if config.is_active %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}"
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if config.is_active %}bg-success-subtle text-success-text{% else %}bg-surface-hover text-content{% endif %}"
               >
                 {{ config.is_active|yesno:"Actif,Inactif" }}
               </span>
@@ -309,13 +305,13 @@ Pointages{% endblock %} {% block content %}
                 <input type="hidden" name="config_id" value="{{ config.id }}" />
                 <button
                   type="submit"
-                  class="text-primary-600 hover:text-primary-900 font-medium"
+                  class="text-brand hover:text-brand-text font-medium"
                 >
                   Synchroniser
                 </button>
               </form>
               {% else %}
-              <span class="text-gray-400">-</span>
+              <span class="text-content-subtle">-</span>
               {% endif %}
             </td>
           </tr>
@@ -326,7 +322,7 @@ Pointages{% endblock %} {% block content %}
     {% else %}
     <div class="p-12 text-center">
       <svg
-        class="w-16 h-16 mx-auto text-gray-400 mb-4"
+        class="w-16 h-16 mx-auto text-content-subtle mb-4"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -338,16 +334,16 @@ Pointages{% endblock %} {% block content %}
           d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
         ></path>
       </svg>
-      <h3 class="text-lg font-medium text-gray-900 mb-2">
+      <h3 class="text-lg font-medium text-content mb-2">
         Aucune configuration
       </h3>
-      <p class="text-sm text-gray-500 mb-6">
+      <p class="text-sm text-content-subtle mb-6">
         Créez une configuration de service tiers pour activer la synchronisation
         des pointages.
       </p>
       <a
         href="{% url 'dashboard:third_party_configs' %}"
-        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800"
+        class="inline-flex items-center px-4 py-2 text-sm font-medium text-brand-on bg-brand rounded-lg hover:bg-brand-hover"
       >
         Créer une configuration
       </a>
@@ -357,63 +353,63 @@ Pointages{% endblock %} {% block content %}
 
   <!-- Recent Logs -->
   <div
-    class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+    class="bg-surface-card rounded-xl shadow-sm border border-border overflow-hidden"
   >
-    <div class="px-6 py-4 border-b border-gray-200">
-      <h3 class="text-lg font-semibold text-gray-900">Pointages Récents</h3>
+    <div class="px-6 py-4 border-b border-border">
+      <h3 class="text-lg font-semibold text-content">Pointages Récents</h3>
     </div>
     <div class="overflow-x-auto max-h-96 scrollbar-thin">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50 sticky top-0">
+      <table class="min-w-full divide-y divide-border">
+        <thead class="bg-surface-sunken sticky top-0">
           <tr>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
             >
               Date/Heure
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
             >
               Terminal
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
             >
               Utilisateur
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
             >
               Type
             </th>
             <th
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
             >
               Statut Sync
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="bg-surface-card divide-y divide-border">
           {% for log in recent_logs %}
-          <tr class="hover:bg-gray-50 transition-colors duration-150">
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+          <tr class="hover:bg-surface-hover transition-colors duration-150">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-content">
               {{ log.time|date:"d/m/Y H:i:s" }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-content-subtle">
               {{ log.terminal.sn }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-content">
               {{ log.user.name|default:log.enrollid }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               {% if log.inout == 0 %}
               <span
-                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-subtle text-success-text"
                 >Entrée</span
               >
               {% else %}
               <span
-                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-subtle text-info-text"
                 >Sortie</span
               >
               {% endif %}
@@ -421,17 +417,17 @@ Pointages{% endblock %} {% block content %}
             <td class="px-6 py-4 whitespace-nowrap">
               {% if log.sync_status == 'pending' %}
               <span
-                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800"
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-subtle text-warning-text"
                 >En attente</span
               >
               {% elif log.sync_status == 'sent' %}
               <span
-                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-subtle text-success-text"
                 >Envoyé</span
               >
               {% else %}
               <span
-                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-subtle text-danger-text"
                 >Échoué</span
               >
               {% endif %}
@@ -441,7 +437,7 @@ Pointages{% endblock %} {% block content %}
           <tr>
             <td
               colspan="5"
-              class="px-6 py-12 text-center text-sm text-gray-500"
+              class="px-6 py-12 text-center text-sm text-content-subtle"
             >
               Aucun pointage récent
             </td>

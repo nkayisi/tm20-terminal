@@ -363,30 +363,3 @@ class AttendanceSyncView(LoginRequiredMixin, View):
                 messages.error(request, f'Erreur lors de la réinitialisation : {str(e)}')
         
         return redirect('dashboard:attendance_sync')
-
-
-class ManagementDashboardView(LoginRequiredMixin, View):
-    """Vue principale du dashboard de gestion"""
-    
-    def get(self, request):
-        terminals_count = Terminal.objects.filter(is_active=True).count()
-        connected_count = DeviceManager.get_connected_count_from_redis()
-        configs_count = ThirdPartyConfig.objects.filter(is_active=True).count()
-        schedules_count = TerminalSchedule.objects.filter(is_active=True).count()
-        
-        pending_attendance = AttendanceLog.objects.filter(sync_status='pending').count()
-        failed_attendance = AttendanceLog.objects.filter(sync_status='failed').count()
-        
-        recent_mappings = TerminalThirdPartyMapping.objects.select_related(
-            'terminal', 'config'
-        ).filter(is_active=True).order_by('-updated_at')[:5]
-        
-        return render(request, 'devices/dashboard/management.html', {
-            'terminals_count': terminals_count,
-            'connected_count': connected_count,
-            'configs_count': configs_count,
-            'schedules_count': schedules_count,
-            'pending_attendance': pending_attendance,
-            'failed_attendance': failed_attendance,
-            'recent_mappings': recent_mappings,
-        })

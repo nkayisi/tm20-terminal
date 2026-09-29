@@ -7,7 +7,7 @@
   <div class="space-y-2">
     {% for message in messages %}
     <div
-      class="p-4 rounded-lg border {% if message.tags == 'success' %}bg-green-50 border-green-200 text-green-800{% elif message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% elif message.tags == 'warning' %}bg-yellow-50 border-yellow-200 text-yellow-800{% else %}bg-blue-50 border-blue-200 text-blue-800{% endif %}"
+      class="p-4 rounded-lg border {% if message.tags == 'success' %}bg-success-subtle border-success/30 text-success-text{% elif message.tags == 'error' %}bg-danger-subtle border-danger/30 text-danger-text{% elif message.tags == 'warning' %}bg-warning-subtle border-warning/30 text-warning-text{% else %}bg-info-subtle border-info/30 text-info-text{% endif %}"
     >
       <div class="flex items-center">
         <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -35,15 +35,15 @@
   <!-- Page Header -->
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Services Tiers</h1>
-      <p class="mt-1 text-sm text-gray-500">
+      <h1 class="text-3xl font-bold text-content">Services Tiers</h1>
+      <p class="mt-1 text-sm text-content-subtle">
         Configurez les connexions avec vos systèmes externes
       </p>
     </div>
     <button
       type="button"
       data-open-modal="addConfigModal"
-      class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all duration-200 shadow-sm hover:shadow-md"
+      class="inline-flex items-center px-4 py-2 text-sm font-medium text-brand-on bg-brand rounded-lg hover:bg-brand-hover transition-all duration-200 shadow-sm hover:shadow-md"
     >
       <svg
         class="w-5 h-5 mr-2"
@@ -67,20 +67,20 @@
   <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
     {% for config in configs %}
     <div
-      class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden card-hover flex flex-col"
+      class="bg-surface-card rounded-xl shadow-sm border border-border overflow-hidden card-hover flex flex-col"
     >
       <div class="p-6 flex-1">
         <div class="flex items-start justify-between mb-4">
           <div class="flex-1 min-w-0">
-            <h3 class="text-lg font-semibold text-gray-900">
+            <h3 class="text-lg font-semibold text-content">
               {{ config.name }}
             </h3>
-            <p class="mt-1 text-sm text-gray-500 truncate">
+            <p class="mt-1 text-sm text-content-subtle truncate">
               {{ config.base_url }}
             </p>
           </div>
           <span
-            class="ml-3 shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if config.is_active %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}"
+            class="ml-3 shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if config.is_active %}bg-success-subtle text-success-text{% else %}bg-surface-hover text-content{% endif %}"
           >
             {% if config.is_active %}Actif{% else %}Inactif{% endif %}
           </span>
@@ -88,9 +88,9 @@
 
         <div class="space-y-2">
           {% if config.users_endpoint %}
-          <div class="flex items-center text-sm text-gray-600">
+          <div class="flex items-center text-sm text-content-secondary">
             <svg
-              class="w-4 h-4 mr-2 text-blue-500"
+              class="w-4 h-4 mr-2 text-info"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -105,9 +105,9 @@
             <code class="text-xs">{{ config.users_endpoint }}</code>
           </div>
           {% endif %} {% if config.attendance_endpoint %}
-          <div class="flex items-center text-sm text-gray-600">
+          <div class="flex items-center text-sm text-content-secondary">
             <svg
-              class="w-4 h-4 mr-2 text-green-500"
+              class="w-4 h-4 mr-2 text-success"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -126,12 +126,12 @@
       </div>
 
       <div
-        class="flex justify-end px-6 py-3 border-t border-gray-100 bg-gray-50"
+        class="flex justify-end px-6 py-3 border-t border-border bg-surface-sunken"
       >
         <button
           type="button"
           data-open-modal="editConfigModal-{{ config.id }}"
-          class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-primary-700 hover:border-primary-300 transition-colors"
+          class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-content-secondary bg-surface-card border border-border-strong rounded-lg hover:bg-surface-hover hover:text-brand-text hover:border-brand transition-colors"
         >
           <svg
             class="w-4 h-4 mr-1.5"
@@ -154,10 +154,10 @@
   </div>
   {% else %}
   <div
-    class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center"
+    class="bg-surface-card rounded-xl shadow-sm border border-border p-12 text-center"
   >
     <svg
-      class="w-16 h-16 mx-auto text-gray-400 mb-4"
+      class="w-16 h-16 mx-auto text-content-subtle mb-4"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -169,14 +169,14 @@
         d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
       ></path>
     </svg>
-    <h3 class="text-lg font-medium text-gray-900 mb-2">Aucune configuration</h3>
-    <p class="text-sm text-gray-500 mb-6">
+    <h3 class="text-lg font-medium text-content mb-2">Aucune configuration</h3>
+    <p class="text-sm text-content-subtle mb-6">
       Créez votre première configuration de service tiers pour commencer.
     </p>
     <button
       type="button"
       data-open-modal="addConfigModal"
-      class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all duration-200"
+      class="inline-flex items-center px-4 py-2 text-sm font-medium text-brand-on bg-brand rounded-lg hover:bg-brand-hover transition-all duration-200"
     >
       <svg
         class="w-5 h-5 mr-2"
@@ -203,23 +203,23 @@
     class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0"
   >
     <div
-      class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+      class="fixed inset-0 transition-opacity bg-black/50"
       data-close-modal="addConfigModal"
     ></div>
 
     <div
-      class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full"
+      class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-surface-card rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full"
     >
       <form method="post" class="p-6">
         {% csrf_token %}
         <div class="flex items-center justify-between mb-6">
-          <h3 class="text-lg font-semibold text-gray-900">
+          <h3 class="text-lg font-semibold text-content">
             Nouvelle Configuration
           </h3>
           <button
             type="button"
             data-close-modal="addConfigModal"
-            class="text-gray-400 hover:text-gray-500"
+            class="text-content-subtle hover:text-content-secondary"
           >
             <svg
               class="w-6 h-6"
@@ -243,13 +243,13 @@
           <button
             type="button"
             data-close-modal="addConfigModal"
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            class="px-4 py-2 text-sm font-medium text-content-secondary bg-surface-card border border-border-strong rounded-lg hover:bg-surface-hover"
           >
             Annuler
           </button>
           <button
             type="submit"
-            class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800"
+            class="px-4 py-2 text-sm font-medium text-brand-on bg-brand rounded-lg hover:bg-brand-hover"
           >
             Créer
           </button>
@@ -269,12 +269,12 @@
     class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0"
   >
     <div
-      class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+      class="fixed inset-0 transition-opacity bg-black/50"
       data-close-modal="editConfigModal-{{ config.id }}"
     ></div>
 
     <div
-      class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full"
+      class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-surface-card rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full"
     >
       <form
         method="post"
@@ -284,15 +284,15 @@
         {% csrf_token %}
         <div class="flex items-start justify-between mb-6">
           <div>
-            <h3 class="text-lg font-semibold text-gray-900">
+            <h3 class="text-lg font-semibold text-content">
               Modifier la configuration
             </h3>
-            <p class="mt-1 text-sm text-gray-500">{{ config.name }}</p>
+            <p class="mt-1 text-sm text-content-subtle">{{ config.name }}</p>
           </div>
           <button
             type="button"
             data-close-modal="editConfigModal-{{ config.id }}"
-            class="text-gray-400 hover:text-gray-500"
+            class="text-content-subtle hover:text-content-secondary"
           >
             <svg
               class="w-6 h-6"
@@ -316,13 +316,13 @@
           <button
             type="button"
             data-close-modal="editConfigModal-{{ config.id }}"
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            class="px-4 py-2 text-sm font-medium text-content-secondary bg-surface-card border border-border-strong rounded-lg hover:bg-surface-hover"
           >
             Annuler
           </button>
           <button
             type="submit"
-            class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800"
+            class="px-4 py-2 text-sm font-medium text-brand-on bg-brand rounded-lg hover:bg-brand-hover"
           >
             Enregistrer
           </button>

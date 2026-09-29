@@ -30,7 +30,7 @@
 
     --text-primary:   222 22% 14%;
     --text-secondary: 218 12% 40%;
-    --text-subtle:    218 10% 46%;
+    --text-subtle:    218 10% 44%;
     --text-inverted:  0 0% 100%;
 
     /* Assombri jusqu'à ce que le blanc posé dessus atteigne 4.5:1 : un
@@ -43,11 +43,17 @@
        atteint que 4.14:1. Les autres tons ont déjà leur variante -text. */
     --brand-text:   201 96% 34%;
 
-    --success: 160 84% 30%;  --success-subtle: 152 76% 94%;  --success-text: 158 64% 22%;
+    --success: 160 84% 28%;  --success-subtle: 152 76% 94%;  --success-text: 158 64% 22%;
     --warning: 25 90% 38%;   --warning-subtle: 48 96% 91%;   --warning-text: 26 90% 26%;
     --danger:  0 72% 44%;    --danger-subtle:  0 86% 96%;    --danger-text:  0 70% 35%;
     --info:    217 79% 45%;  --info-subtle:    214 95% 95%;  --info-text:    221 70% 36%;
     --neutral: 218 12% 42%;  --neutral-subtle: 210 20% 95%;  --neutral-text: 218 14% 30%;
+
+    /* Texte pose SUR un aplat de couleur. En clair les aplats sont sombres,
+       donc blanc ; en sombre ils deviennent clairs et le blanc y serait
+       illisible -- d'ou un token plutot qu'un `text-white` en dur. */
+    --success-on: 0 0% 100%;  --warning-on: 0 0% 100%;  --danger-on: 0 0% 100%;
+    --info-on:    0 0% 100%;  --neutral-on: 0 0% 100%;
 
     --radius-sm: 6px;
     --radius-md: 8px;
@@ -87,6 +93,9 @@
     --danger:  0 85% 70%;    --danger-subtle:  0 40% 18%;    --danger-text:   0 85% 78%;
     --info:    214 90% 70%;  --info-subtle:  218 42% 20%;    --info-text:   214 90% 78%;
     --neutral: 215 14% 68%;  --neutral-subtle: 222 16% 19%;  --neutral-text: 215 14% 74%;
+
+    --success-on: 222 30% 10%;  --warning-on: 222 30% 10%;  --danger-on: 222 30% 10%;
+    --info-on:    222 30% 10%;  --neutral-on: 222 30% 10%;
 
     /* Une ombre portée est invisible sur fond sombre : la profondeur y passe
        par un liseré, doublé d'une ombre franche pour les surfaces flottantes. */
@@ -201,7 +210,7 @@
   .btn-primary   { @apply bg-brand text-brand-on hover:bg-brand-hover shadow-1; }
   .btn-secondary { @apply bg-surface-card text-content border border-border hover:bg-surface-hover; }
   .btn-ghost     { @apply text-content-secondary hover:bg-surface-hover hover:text-content; }
-  .btn-danger    { @apply bg-danger text-white hover:brightness-110 shadow-1; }
+  .btn-danger    { @apply bg-danger text-danger-on hover:brightness-110 shadow-1; }
   .btn-sm        { @apply h-8 px-3 text-xs; }
 
   /* Pastille d'état. Un seul vocabulaire de tons pour toute l'application :
@@ -236,30 +245,19 @@
 }
 
 /* ==========================================================================
-   COUCHE DE COMPATIBILITÉ — TEMPORAIRE
-   --------------------------------------------------------------------------
-   Ces règles vivaient dans un <style> de base.html. Les pages pas encore
-   reprises s'en servent encore ; elles disparaissent au fur et à mesure de la
-   migration, et ce bloc entier doit partir avec la dernière d'entre elles.
-   Ne rien ajouter ici.
+   Composants secondaires
    ========================================================================== */
 @layer components {
-  .stat-card { @apply card card-pad relative overflow-hidden; }
-  .stat-card::before {
-    content: '';
-    @apply absolute inset-x-0 top-0 h-1;
-    /* Les gabarits posent encore la couleur via `style="--tw-gradient-from: #..."`,
-       un détournement de variable interne à Tailwind. `.kpi[data-tone]` le
-       remplace sur les pages migrées. */
-    background: var(--tw-gradient-from, hsl(var(--brand)));
-  }
-
+  /* Élévation au survol pour une carte cliquable. Transition limitee a deux
+     proprietes composables : jamais `transition: all`. */
   .card-hover { transition: box-shadow 200ms, transform 200ms; }
   .card-hover:hover { @apply shadow-2; transform: translateY(-2px); }
 
+  /* Barre de defilement discrete pour les zones internes scrollables. */
   .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
   .scrollbar-thin::-webkit-scrollbar-track { background: hsl(var(--surface-sunken)); }
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: hsl(var(--border-strong)); border-radius: 3px;
   }
+  .scrollbar-thin { scrollbar-color: hsl(var(--border-strong)) hsl(var(--surface-sunken)); }
 }

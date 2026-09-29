@@ -3,6 +3,7 @@ URLs du dashboard
 """
 
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 from . import management_views
@@ -21,7 +22,11 @@ urlpatterns = [
     path('api/command/<str:sn>/', views.CommandAPIView.as_view(), name='command'),
     
     # Vues de gestion
-    path('management/', management_views.ManagementDashboardView.as_view(), name='management'),
+    # La page « Vue d'ensemble » n'apportait rien que le monitoring et la
+    # barre de navigation ne donnaient deja. Son URL redirige pour ne pas
+    # casser les liens et signets existants.
+    path('management/', RedirectView.as_view(pattern_name='dashboard:index', permanent=False),
+         name='management'),
     path('management/third-party-configs/', management_views.ThirdPartyConfigsView.as_view(), name='third_party_configs'),
     path('management/third-party-configs/<int:config_id>/edit/', management_views.ThirdPartyConfigEditView.as_view(), name='third_party_config_edit'),
     path('management/schedules/', management_views.TerminalSchedulesView.as_view(), name='schedules'),

@@ -7,7 +7,7 @@
   <div class="space-y-2">
     {% for message in messages %}
     <div
-      class="p-4 rounded-lg border {% if message.tags == 'success' %}bg-green-50 border-green-200 text-green-800{% elif message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-blue-50 border-blue-200 text-blue-800{% endif %}"
+      class="p-4 rounded-lg border {% if message.tags == 'success' %}bg-success-subtle border-success/30 text-success-text{% elif message.tags == 'error' %}bg-danger-subtle border-danger/30 text-danger-text{% else %}bg-info-subtle border-info/30 text-info-text{% endif %}"
     >
       <div class="flex items-center">
         <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -34,8 +34,8 @@
 
   <!-- Page Header -->
   <div>
-    <h1 class="text-3xl font-bold text-gray-900">Horaires de Travail</h1>
-    <p class="mt-1 text-sm text-gray-500">
+    <h1 class="text-3xl font-bold text-content">Horaires de Travail</h1>
+    <p class="mt-1 text-sm text-content-subtle">
       Configurez les horaires de travail pour chaque terminal
     </p>
   </div>
@@ -44,35 +44,35 @@
     <!-- Terminals List -->
     <div class="lg:col-span-1">
       <div
-        class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+        class="bg-surface-card rounded-xl shadow-sm border border-border overflow-hidden"
       >
-        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
-          <h3 class="text-sm font-semibold text-gray-900">Terminaux</h3>
+        <div class="px-4 py-3 border-b border-border bg-surface-sunken">
+          <h3 class="text-sm font-semibold text-content">Terminaux</h3>
         </div>
         <div
-          class="divide-y divide-gray-200 max-h-96 overflow-y-auto scrollbar-thin"
+          class="divide-y divide-border max-h-96 overflow-y-auto scrollbar-thin"
         >
           {% for terminal in terminals %}
           <a
             href="{% url 'dashboard:schedules_terminal' terminal.id %}"
-            class="block px-4 py-3 hover:bg-gray-50 transition-colors duration-150 {% if selected_terminal.id == terminal.id %}bg-primary-50 border-l-4 border-primary-600{% endif %}"
+            class="block px-4 py-3 hover:bg-surface-hover transition-colors duration-150 {% if selected_terminal.id == terminal.id %}bg-brand-subtle border-l-4 border-brand{% endif %}"
           >
             <div class="flex items-center justify-between">
               <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
+                <p class="text-sm font-medium text-content truncate flex items-center gap-1.5">
                   {% if terminal.is_online %}
-                  <span class="inline-block w-2 h-2 rounded-full bg-green-500" title="En ligne"></span>
+                  <span class="inline-block w-2 h-2 rounded-full bg-success" title="En ligne"></span>
                   {% else %}
-                  <span class="inline-block w-2 h-2 rounded-full bg-gray-300" title="Hors ligne"></span>
+                  <span class="inline-block w-2 h-2 rounded-full bg-neutral" title="Hors ligne"></span>
                   {% endif %}
                   <span class="truncate" title="{{ terminal.sn }}">{{ terminal.short_label }}</span>
                 </p>
-                <p class="text-xs {% if terminal.is_online %}text-green-600{% else %}text-gray-500{% endif %} truncate">
+                <p class="text-xs {% if terminal.is_online %}text-success{% else %}text-content-subtle{% endif %} truncate">
                   {% if terminal.name %}{{ terminal.sn }} · {% endif %}{{ terminal.model|default:"TM20" }}{% if terminal.location %} · {{ terminal.location }}{% endif %} · {% if terminal.is_online %}En ligne{% else %}Hors ligne{% endif %}
                 </p>
               </div>
               <span
-                class="inline-flex items-center justify-center w-6 h-6 text-xs font-medium rounded-full {% if selected_terminal.id == terminal.id %}bg-primary-600 text-white{% else %}bg-gray-100 text-gray-600{% endif %}"
+                class="inline-flex items-center justify-center w-6 h-6 text-xs font-medium rounded-full {% if selected_terminal.id == terminal.id %}bg-brand text-brand-on{% else %}bg-surface-hover text-content-secondary{% endif %}"
               >
                 {{ terminal.schedules_count }}
               </span>
@@ -81,7 +81,7 @@
           {% empty %}
           <div class="p-8 text-center">
             <svg
-              class="w-12 h-12 mx-auto text-gray-400 mb-2"
+              class="w-12 h-12 mx-auto text-content-subtle mb-2"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -93,7 +93,7 @@
                 d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
               ></path>
             </svg>
-            <p class="text-sm text-gray-500">Aucun terminal actif</p>
+            <p class="text-sm text-content-subtle">Aucun terminal actif</p>
           </div>
           {% endfor %}
         </div>
@@ -105,17 +105,17 @@
       {% if selected_terminal %}
         <!-- Schedules Table -->
         <div
-          class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+          class="bg-surface-card rounded-xl shadow-sm border border-border overflow-hidden"
         >
           <div
-            class="px-6 py-4 border-b border-gray-200 flex items-center justify-between"
+            class="px-6 py-4 border-b border-border flex items-center justify-between"
           >
-            <h3 class="text-lg font-semibold text-gray-900">
+            <h3 class="text-lg font-semibold text-content">
               Horaires de {{ selected_terminal.short_label }}
             </h3>
             <button
               onclick="document.getElementById('addScheduleModal').classList.remove('hidden')"
-              class="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all duration-200"
+              class="inline-flex items-center px-3 py-2 text-sm font-medium text-brand-on bg-brand rounded-lg hover:bg-brand-hover transition-all duration-200"
             >
               <svg
                 class="w-4 h-4 mr-2"
@@ -135,63 +135,63 @@
           </div>
           {% if schedules %}
           <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
+            <table class="min-w-full divide-y divide-border">
+              <thead class="bg-surface-sunken">
                 <tr>
                   <th
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
                   >
                     Jour
                   </th>
                   <th
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
                   >
                     Arrivée
                   </th>
                   <th
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
                   >
                     Pause
                   </th>
                   <th
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
                   >
                     Sortie
                   </th>
                   <th
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
                   >
                     Tolérance
                   </th>
                   <th
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    class="px-6 py-3 text-left text-xs font-medium text-content-subtle uppercase tracking-wider"
                   >
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
+              <tbody class="bg-surface-card divide-y divide-border">
                 {% for schedule in schedules %}
-                <tr class="hover:bg-gray-50 transition-colors duration-150">
+                <tr class="hover:bg-surface-hover transition-colors duration-150">
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-gray-900">
+                    <div class="text-sm font-medium text-content">
                       {{ schedule.get_weekday_display }}
                     </div>
-                    <div class="text-xs text-gray-500">{{ schedule.name }}</div>
+                    <div class="text-xs text-content-subtle">{{ schedule.name }}</div>
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-content">
                     {{ schedule.check_in_time|time:"H:i" }}
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-content-subtle">
                     {% if schedule.break_start_time %} 
                     {{ schedule.break_start_time|time:"H:i" }} - {{ schedule.break_end_time|time:"H:i" }} {% else %}
-                    <span class="text-gray-400">-</span>
+                    <span class="text-content-subtle">-</span>
                     {% endif %}
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-content">
                     {{ schedule.check_out_time|time:"H:i" }}
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-content-subtle">
                     {{ schedule.tolerance_minutes }} min
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm">
@@ -209,7 +209,7 @@
                       />
                       <button
                         type="submit"
-                        class="text-red-600 hover:text-red-900"
+                        class="text-danger hover:text-danger-text"
                       >
                         <svg
                           class="w-5 h-5"
@@ -235,7 +235,7 @@
           {% else %}
           <div class="p-12 text-center">
             <svg
-              class="w-16 h-16 mx-auto text-gray-400 mb-4"
+              class="w-16 h-16 mx-auto text-content-subtle mb-4"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -247,15 +247,15 @@
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
               ></path>
             </svg>
-            <h3 class="text-lg font-medium text-gray-900 mb-2">
+            <h3 class="text-lg font-medium text-content mb-2">
               Aucun horaire configuré
             </h3>
-            <p class="text-sm text-gray-500 mb-6">
+            <p class="text-sm text-content-subtle mb-6">
               Ajoutez des horaires pour ce terminal.
             </p>
             <button
               onclick="document.getElementById('addScheduleModal').classList.remove('hidden')"
-              class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800"
+              class="inline-flex items-center px-4 py-2 text-sm font-medium text-brand-on bg-brand rounded-lg hover:bg-brand-hover"
             >
               <svg
                 class="w-5 h-5 mr-2"
@@ -277,19 +277,19 @@
         </div>
 
         <!-- Week View -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Vue Semaine</h3>
+        <div class="bg-surface-card rounded-xl shadow-sm border border-border p-6">
+          <h3 class="text-lg font-semibold text-content mb-4">Vue Semaine</h3>
           <div class="grid grid-cols-7 gap-2">
             {% for day in weekdays %}
             <div class="text-center">
-              <div class="text-xs font-semibold text-gray-500 uppercase mb-2">
+              <div class="text-xs font-semibold text-content-subtle uppercase mb-2">
                 {{ day.label|slice:":3" }}
               </div>
               <div class="space-y-1">
                 {% for schedule in schedules %} 
                 {% if schedule.weekday == day.value %}
                 <div
-                  class="bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-lg p-2 text-xs"
+                  class="bg-brand text-brand-on rounded-lg p-2 text-xs"
                 >
                   <div class="font-medium">
                     {{ schedule.check_in_time|time:"H:i" }}
@@ -307,10 +307,10 @@
         </div>
       {% else %}
         <div
-          class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center"
+          class="bg-surface-card rounded-xl shadow-sm border border-border p-12 text-center"
         >
           <svg
-            class="w-16 h-16 mx-auto text-gray-400 mb-4"
+            class="w-16 h-16 mx-auto text-content-subtle mb-4"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -322,10 +322,10 @@
               d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"
             ></path>
           </svg>
-          <h3 class="text-lg font-medium text-gray-900 mb-2">
+          <h3 class="text-lg font-medium text-content mb-2">
             Sélectionnez un terminal
           </h3>
-          <p class="text-sm text-gray-500">
+          <p class="text-sm text-content-subtle">
             Choisissez un terminal dans la liste pour gérer ses horaires.
           </p>
         </div>
@@ -341,21 +341,21 @@
     class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0"
   >
     <div
-      class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+      class="fixed inset-0 transition-opacity bg-black/50"
       onclick="document.getElementById('addScheduleModal').classList.add('hidden')"
     ></div>
 
     <div
-      class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full"
+      class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-surface-card rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full"
     >
       <form method="post" class="p-6">
         {% csrf_token %}
         <div class="flex items-center justify-between mb-6">
-          <h3 class="text-lg font-semibold text-gray-900">Nouvel Horaire</h3>
+          <h3 class="text-lg font-semibold text-content">Nouvel Horaire</h3>
           <button
             type="button"
             onclick="document.getElementById('addScheduleModal').classList.add('hidden')"
-            class="text-gray-400 hover:text-gray-500"
+            class="text-content-subtle hover:text-content-secondary"
           >
             <svg
               class="w-6 h-6"
@@ -375,14 +375,14 @@
 
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
+            <label class="block text-sm font-medium text-content-secondary mb-1"
               >{{ form.name.label }}</label
             >
             {{ form.name }}
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
+            <label class="block text-sm font-medium text-content-secondary mb-1"
               >{{ form.weekday.label }}</label
             >
             {{ form.weekday }}
@@ -390,13 +390,13 @@
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
+              <label class="block text-sm font-medium text-content-secondary mb-1"
                 >{{ form.check_in_time.label }}</label
               >
               {{ form.check_in_time }}
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
+              <label class="block text-sm font-medium text-content-secondary mb-1"
                 >{{ form.check_out_time.label }}</label
               >
               {{ form.check_out_time }}
@@ -405,13 +405,13 @@
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
+              <label class="block text-sm font-medium text-content-secondary mb-1"
                 >{{ form.break_start_time.label }}</label
               >
               {{ form.break_start_time }}
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
+              <label class="block text-sm font-medium text-content-secondary mb-1"
                 >{{ form.break_end_time.label }}</label
               >
               {{ form.break_end_time }}
@@ -419,7 +419,7 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
+            <label class="block text-sm font-medium text-content-secondary mb-1"
               >{{ form.tolerance_minutes.label }}</label
             >
             {{ form.tolerance_minutes }}
@@ -431,19 +431,19 @@
           {% endcomment %}
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
+              <label class="block text-sm font-medium text-content-secondary mb-1"
                 >{{ form.effective_from.label }}</label
               >
               {{ form.effective_from }}
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
+              <label class="block text-sm font-medium text-content-secondary mb-1"
                 >{{ form.effective_until.label }}</label
               >
               {{ form.effective_until }}
             </div>
           </div>
-          <p class="text-xs text-gray-500 -mt-2">
+          <p class="text-xs text-content-subtle -mt-2">
             Laissez ces dates vides pour un horaire valable sans limite.
           </p>
 
@@ -457,7 +457,7 @@
             {{ form.is_active }}
             <label
               for="{{ form.is_active.id_for_label }}"
-              class="ml-2 text-sm font-medium text-gray-700"
+              class="ml-2 text-sm font-medium text-content-secondary"
               >{{ form.is_active.label }}</label
             >
           </div>
@@ -467,13 +467,13 @@
           <button
             type="button"
             onclick="document.getElementById('addScheduleModal').classList.add('hidden')"
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            class="px-4 py-2 text-sm font-medium text-content-secondary bg-surface-card border border-border-strong rounded-lg hover:bg-surface-hover"
           >
             Annuler
           </button>
           <button
             type="submit"
-            class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg hover:from-primary-700 hover:to-primary-800"
+            class="px-4 py-2 text-sm font-medium text-brand-on bg-brand rounded-lg hover:bg-brand-hover"
           >
             Créer
           </button>

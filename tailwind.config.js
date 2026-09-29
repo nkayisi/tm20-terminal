@@ -47,11 +47,11 @@ module.exports = {
           on: token('brand-on'),
           text: token('brand-text'),
         },
-        success: { DEFAULT: token('success'), subtle: token('success-subtle'), text: token('success-text') },
-        warning: { DEFAULT: token('warning'), subtle: token('warning-subtle'), text: token('warning-text') },
-        danger:  { DEFAULT: token('danger'),  subtle: token('danger-subtle'),  text: token('danger-text')  },
-        info:    { DEFAULT: token('info'),    subtle: token('info-subtle'),    text: token('info-text')    },
-        neutral: { DEFAULT: token('neutral'), subtle: token('neutral-subtle'), text: token('neutral-text') },
+        success: { DEFAULT: token('success'), subtle: token('success-subtle'), text: token('success-text'), on: token('success-on') },
+        warning: { DEFAULT: token('warning'), subtle: token('warning-subtle'), text: token('warning-text'), on: token('warning-on') },
+        danger:  { DEFAULT: token('danger'),  subtle: token('danger-subtle'),  text: token('danger-text')  , on: token('danger-on') },
+        info:    { DEFAULT: token('info'),    subtle: token('info-subtle'),    text: token('info-text')    , on: token('info-on') },
+        neutral: { DEFAULT: token('neutral'), subtle: token('neutral-subtle'), text: token('neutral-text'), on: token('neutral-on') },
 
         // ALIAS TEMPORAIRE — à supprimer au dernier commit de la migration.
         // Les gabarits pas encore repris utilisent encore `primary-600` : sans
@@ -72,7 +72,7 @@ module.exports = {
         2: 'var(--shadow-2)',
         3: 'var(--shadow-3)',
       },
-      // Utilisees par les pages pas encore reprises ; a retirer avec elles.
+      // Entrees de page : une seule fois, a l'arrivee du contenu.
       animation: {
         'fade-in': 'fadeIn .4s ease-out',
         'slide-up': 'slideUp .3s ease-out',
