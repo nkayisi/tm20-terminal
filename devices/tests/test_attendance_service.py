@@ -114,6 +114,90 @@ class ProcessLogsTests(TestCase):
             [0, 1],
         )
 
+    def test_forgotten_exit_does_not_shift_the_next_day(self):
+        """Une sortie oubliee laisse la journee a un seul pointage.
+
+        Le cas reel : quelqu'un badge en arrivant et repart sans badger. Sans
+        borne de journee, son arrivee du lendemain devenait une SORTIE, et
+        l'inversion se propageait a tout l'historique suivant -- rien dans la
+        trame du terminal ne permettant de se resynchroniser.
+        """
+        self.process([{'enrollid': 7, 'time': '2026-01-05 08:00:00'}])
+        # Pas de pointage de sortie le 5 : la journee reste a une seule ligne.
+        self.process([{'enrollid': 7, 'time': '2026-01-06 08:00:00'}])
+
+        self.assertEqual(
+            list(AttendanceLog.objects.order_by('time').values_list('inout', flat=True)),
+            [0, 0],
+            "le premier pointage d'une journee est toujours une entree",
+        )
+
+    def test_each_day_restarts_at_entry(self):
+        """Trois jours de suite, meme apres une journee complete."""
+        self.process([
+            {'enrollid': 7, 'time': '2026-01-05 08:00:00'},
+            {'enrollid': 7, 'time': '2026-01-05 17:00:00'},
+            {'enrollid': 7, 'time': '2026-01-06 08:00:00'},
+            {'enrollid': 7, 'time': '2026-01-07 08:00:00'},
+            {'enrollid': 7, 'time': '2026-01-07 17:00:00'},
+        ])
+
+        self.assertEqual(
+            list(AttendanceLog.objects.order_by('time').values_list('inout', flat=True)),
+            [0, 1, 0, 0, 1],
+        )
+
+    def test_batch_spanning_midnight_restarts_the_day_it_crosses(self):
+        """Un lot peut enjamber minuit : la remise a zero doit suivre.
+
+        Un terminal prive de reseau accumule, puis deverse plusieurs jours
+        dans un seul `sendlog`.
+        """
+        self.process([
+            {'enrollid': 7, 'time': '2026-01-05 08:00:00'},
+            {'enrollid': 7, 'time': '2026-01-05 12:00:00'},
+            {'enrollid': 7, 'time': '2026-01-05 13:00:00'},
+            {'enrollid': 7, 'time': '2026-01-06 08:00:00'},
+        ])
+
+        self.assertEqual(
+            list(AttendanceLog.objects.order_by('time').values_list('inout', flat=True)),
+            [0, 1, 0, 0],
+        )
+
+    def test_day_boundary_follows_the_site_not_utc(self):
+        """La journee est celle du site : minuit local, pas minuit UTC.
+
+        A Kinshasa (UTC+1), un pointage a 23h30 et un a 00h30 sont deux
+        journees. En UTC ils tomberaient tous deux le meme jour (22h30 et
+        23h30) et le second serait pris pour une sortie.
+        """
+        self.process([{'enrollid': 7, 'time': '2026-01-05 23:30:00'}])
+        self.process([{'enrollid': 7, 'time': '2026-01-06 00:30:00'}])
+
+        self.assertEqual(
+            list(AttendanceLog.objects.order_by('time').values_list('inout', flat=True)),
+            [0, 0],
+        )
+
+    def test_two_users_keep_independent_daily_sequences(self):
+        self.process([
+            {'enrollid': 7, 'time': '2026-01-05 08:00:00'},
+            {'enrollid': 8, 'time': '2026-01-05 08:01:00'},
+            {'enrollid': 7, 'time': '2026-01-05 17:00:00'},
+            {'enrollid': 8, 'time': '2026-01-06 08:00:00'},
+        ])
+
+        self.assertEqual(
+            [log.inout for log in AttendanceLog.objects.filter(enrollid=7).order_by('time')],
+            [0, 1],
+        )
+        self.assertEqual(
+            [log.inout for log in AttendanceLog.objects.filter(enrollid=8).order_by('time')],
+            [0, 0],
+            "le 8 n'a pas badge sa sortie le 5 : le 6 reste une entree",
+        )
+
     def test_backfilled_batch_is_anchored_before_its_own_records(self):
         """Un lot antidaté ne doit pas s'amorcer sur un pointage postérieur.
 

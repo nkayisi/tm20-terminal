@@ -116,15 +116,20 @@ class AttendanceService:
         enrollids = {r.enrollid for _, r in prepared if r.enrollid > 0}
         users = self._get_users(terminal, enrollids)
 
-        # Horodatage du premier pointage du lot pour chaque utilisateur : il
-        # sert d'ancre a la recherche du sens de passage precedent. `prepared`
-        # etant deja trie, la premiere occurrence est la plus ancienne.
+        # Horodatage du premier pointage du lot pour chaque couple
+        # (utilisateur, journee du site) : il sert d'ancre a la recherche du
+        # sens de passage precedent. `prepared` etant deja trie, la premiere
+        # occurrence est la plus ancienne. La cle porte la journee parce que
+        # l'alternance se reinitialise chaque jour (cf. `_prepare_log`), et un
+        # lot peut enjamber minuit -- un terminal reste muet tant qu'il n'a pas
+        # de reseau, puis deverse plusieurs jours d'un coup.
         first_seen = {}
         for log_time, record in prepared:
             if record.enrollid > 0:
-                first_seen.setdefault(record.enrollid, log_time)
+                key = (record.enrollid, timezone.localdate(log_time))
+                first_seen.setdefault(key, log_time)
 
-        last_inout = self._get_last_inout(terminal, enrollids, first_seen)
+        last_inout = self._get_last_inout(terminal, first_seen)
 
         logs_to_create = []
         access_granted = True
@@ -203,40 +208,38 @@ class AttendanceService:
             )
         }
 
-    def _get_last_inout(
-        self,
-        terminal: Terminal,
-        enrollids: set,
-        first_seen: dict = None,
-    ) -> dict:
-        """Dernier sens de passage connu par utilisateur (une requete chacun).
+    def _get_last_inout(self, terminal: Terminal, first_seen: dict) -> dict:
+        """Dernier sens de passage connu, par (utilisateur, journee du site).
 
         Sert d'amorce a l'alternance entree/sortie. Les enregistrements du lot
         n'etant inseres qu'a la fin, l'etat doit etre tenu en memoire pendant
         la boucle -- sinon tous les pointages d'un meme utilisateur dans un
         meme lot recevraient le meme sens.
 
-        `first_seen` donne, par utilisateur, l'horodatage du premier pointage
-        du lot : l'amorce est cherchee STRICTEMENT AVANT lui. Sans cette ancre,
-        un lot antidate (backfill `getalllog`/`getnewlog` via
-        `ResponseHandler._persist_log_page`) s'amorcait sur un pointage
-        POSTERIEUR et inversait toute l'alternance.
+        `first_seen` donne, pour chaque couple (utilisateur, journee),
+        l'horodatage du premier pointage du lot : l'amorce est cherchee
+        STRICTEMENT AVANT lui, ET dans la meme journee. Deux bornes, deux
+        regressions distinctes :
+
+        - sans l'ancre, un lot antidate (backfill `getalllog`/`getnewlog` via
+          `ResponseHandler._persist_log_page`) s'amorcait sur un pointage
+          POSTERIEUR et inversait toute l'alternance ;
+        - sans la borne de journee, une sortie oubliee la veille faisait de
+          l'arrivee du lendemain une sortie, et l'inversion se propageait
+          ensuite sans fin -- rien dans la trame du terminal ne permettant de
+          se resynchroniser.
 
         Limite assumee : les lignes deja en base posterieures au lot ne sont
         pas re-derivees. Reecrire l'historique demanderait une reprise globale
         par utilisateur, hors du perimetre de cette correction.
         """
-        if not enrollids:
-            return {}
-
-        first_seen = first_seen or {}
         last = {}
-        for enrollid in enrollids:
+        for (enrollid, day), anchor in first_seen.items():
             previous = AttendanceLog.get_last_attendance(
-                enrollid, terminal, before_time=first_seen.get(enrollid)
+                enrollid, terminal, before_time=anchor, on_date=day
             )
             if previous is not None:
-                last[enrollid] = previous.inout
+                last[(enrollid, day)] = previous.inout
         return last
 
     def _prepare_log(
@@ -260,11 +263,20 @@ class AttendanceService:
         user = users.get(record.enrollid) if record.enrollid > 0 else None
 
         if record.enrollid > 0:
-            # Alternance entree/sortie : le terminal envoie toujours inout=0,
-            # c'est le serveur qui tient le sens de passage.
-            previous = last_inout.get(record.enrollid)
+            # Alternance entree/sortie : le terminal envoie toujours inout=0
+            # (la spec reserve ce champ au couple lecteur maitre / lecteur
+            # esclave, section 6.1-1), c'est donc le serveur qui tient le sens
+            # de passage.
+            #
+            # L'alternance est bornee a la journee civile du site : le premier
+            # pointage d'un jour est TOUJOURS une entree. Une sortie oubliee
+            # laisse donc une journee a un seul pointage, au lieu de decaler
+            # d'un cran tout l'historique suivant -- l'erreur reste dans sa
+            # journee et ne se propage pas.
+            key = (record.enrollid, timezone.localdate(log_time))
+            previous = last_inout.get(key)
             inout_status = 0 if previous is None else (1 if previous == 0 else 0)
-            last_inout[record.enrollid] = inout_status
+            last_inout[key] = inout_status
             access_granted = self._check_access(user)
         else:
             # enrollid == 0 : evenement de porte, `inout` est fige a 1 par la

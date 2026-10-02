@@ -507,7 +507,7 @@ class AttendanceLog(models.Model):
         return self.inout == 1
     
     @classmethod
-    def get_last_attendance(cls, enrollid, terminal, before_time=None):
+    def get_last_attendance(cls, enrollid, terminal, before_time=None, on_date=None):
         """
         Récupère le dernier pointage d'un utilisateur sur un terminal.
         
@@ -515,6 +515,9 @@ class AttendanceLog(models.Model):
             enrollid: ID d'enrôlement de l'utilisateur
             terminal: Instance du terminal
             before_time: Récupérer le pointage avant cette date (optionnel)
+            on_date: Restreindre à cette journée civile du site (optionnel).
+                Le filtre `time__date` est évalué dans le fuseau actif, donc
+                dans celui du site -- pas en UTC.
         
         Returns:
             AttendanceLog ou None
@@ -527,6 +530,9 @@ class AttendanceLog(models.Model):
         if before_time:
             queryset = queryset.filter(time__lt=before_time)
         
+        if on_date is not None:
+            queryset = queryset.filter(time__date=on_date)
+        
         return queryset.order_by('-time').first()
     
     @classmethod
@@ -534,10 +540,15 @@ class AttendanceLog(models.Model):
         """
         Détermine automatiquement si le pointage doit être une entrée ou sortie.
         
-        Logique:
-        - Si aucun pointage précédent: ENTRÉE (0)
-        - Si dernier pointage = ENTRÉE: SORTIE (1)
-        - Si dernier pointage = SORTIE: ENTRÉE (0)
+        Logique, à l'intérieur d'UNE journée civile du site :
+        - Si aucun pointage ce jour-là: ENTRÉE (0)
+        - Si dernier pointage du jour = ENTRÉE: SORTIE (1)
+        - Si dernier pointage du jour = SORTIE: ENTRÉE (0)
+        
+        La veille n'amorce jamais le jour suivant : une sortie oubliée ne doit
+        pas transformer l'arrivée du lendemain en départ. Même règle que
+        `AttendanceService._prepare_log`, qui est le chemin réellement emprunté
+        par les pointages reçus.
         
         Args:
             enrollid: ID d'enrôlement de l'utilisateur
@@ -547,10 +558,14 @@ class AttendanceLog(models.Model):
         Returns:
             int: 0 pour entrée, 1 pour sortie
         """
-        last_attendance = cls.get_last_attendance(enrollid, terminal, current_time)
+        last_attendance = cls.get_last_attendance(
+            enrollid, terminal,
+            before_time=current_time,
+            on_date=timezone.localdate(current_time),
+        )
         
         if not last_attendance:
-            # Aucun pointage précédent = première entrée
+            # Aucun pointage plus tot dans la journee = entree
             return 0
         
         # Alterner entre entrée et sortie
