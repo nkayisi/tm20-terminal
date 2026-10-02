@@ -306,7 +306,13 @@ class LogsAPIView(LoginRequiredMixin, View):
                 'time': local_time.isoformat(),
                 'time_human': local_time.strftime('%H:%M:%S'),
                 'mode': log.get_mode_display(),
-                'inout': log.get_inout_display(),
+                # `inout` porte la valeur du protocole (0 entree / 1 sortie),
+                # pas son libelle. Le gabarit tranche dessus avec
+                # `log.inout === 0` : lui servir "Entrée" faisait echouer la
+                # comparaison pour TOUS les pointages, qui s'affichaient donc
+                # tous en « Sortie ». Le libelle a son propre champ.
+                'inout': log.inout,
+                'inout_display': log.get_inout_display(),
                 'inout_class': 'success' if log.inout == 0 else 'info',
             })
         
