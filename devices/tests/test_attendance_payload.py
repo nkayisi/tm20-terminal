@@ -1,25 +1,33 @@
 """
 Forme du corps envoyé aux services tiers pour les pointages.
 
-Le contrat est contraint par les récepteurs en service, et il est variable :
+Le contrat est dicté par le récepteur en service (`data_recev.php`), qui
+n'aiguille que sur deux formes :
 
-    1 pointage    ->  l'objet nu, sans enveloppe
-    2 et plus     ->  {"attendances": [ ... ]}
+    if (is_object($datareceive))      -> UN pointage, l'objet nu
+    else if (is_array($datareceive))  -> un tableau RACINE, qu'il parcourt
 
-Cette forme n'est pas un choix du dépôt — elle a déjà été uniformisée puis
-restaurée (32f3f24 -> f6fc303 -> ea6844f -> aujourd'hui). D'où ces tests : ils
-existent pour qu'une « simplification » bien intentionnée casse ici plutôt
-qu'en production, chez un récepteur qui ne sait lire qu'une des deux formes.
+D'où les deux formes envoyées, une par branche :
 
-Ce que les tests surveillent en priorité, c'est la **branche groupée**. En
-exploitation la synchronisation tourne chaque minute : il est rare que deux
-personnes badgent dans le même intervalle, donc le lot d'un seul élément est le
-cas normal et le lot groupé le cas qu'on ne voit presque jamais passer. C'est
-celui qui se casserait sans qu'on le remarque.
+    1 pointage    ->  { ... }
+    2 et plus     ->  [ { ... }, { ... } ]
 
-Le contenu d'un enregistrement, lui, ne doit pas dépendre de la branche :
-`timestamp` porte l'heure murale du terminal avec son offset dans les deux cas
-(voir `test_terminal_time.py` pour l'origine de cette heure).
+Ce que ces tests interdisent avant tout, c'est l'enveloppe
+`{"attendances": [...]}` : `json_decode` en fait un objet, le récepteur part
+donc dans sa branche « un seul pointage », y cherche `timestamp` et
+`external_user_id` qui n'y sont pas, ne trouve aucun matricule et n'insère
+rien — en répondant 200. Le lot entier disparaît sans trace. Le dépôt a déjà
+fait l'aller-retour sur cette forme (32f3f24 -> f6fc303 -> ea6844f -> ici),
+d'où des tests qui nomment la contrainte plutôt que de la supposer connue.
+
+L'attention porte surtout sur le lot groupé : la synchronisation tourne chaque
+minute, il est rare que deux personnes badgent dans le même intervalle, donc le
+lot d'un seul élément est le cas normal et le lot groupé celui qu'on ne voit
+presque jamais passer en exploitation.
+
+Le contenu d'un enregistrement ne dépend pas de la branche : `timestamp` porte
+l'heure murale du terminal avec son offset dans les deux cas — le récepteur lit
+ces chiffres littéralement, sans conversion (voir `test_terminal_time.py`).
 """
 
 import asyncio
@@ -76,37 +84,55 @@ class AttendancePayloadShapeTests(TestCase):
         self.assertEqual(payload['log_id'], 1000)
         self.assertEqual(payload['enrollid'], 7)
 
-    def test_several_records_are_wrapped(self):
+    def test_several_records_are_sent_as_a_root_array(self):
         """Le cas rare, donc celui que ces tests protegent vraiment."""
         payload = self._send(3)
 
-        self.assertIsInstance(payload, dict)
-        self.assertIsInstance(payload['attendances'], list)
-        self.assertEqual(
-            [r['log_id'] for r in payload['attendances']], [1000, 1001, 1002]
-        )
+        self.assertIsInstance(payload, list)
+        self.assertEqual([r['log_id'] for r in payload], [1000, 1001, 1002])
 
-    def test_two_records_already_use_the_wrapped_form(self):
+    def test_two_records_already_use_the_array_form(self):
         """La bascule est a deux, pas a trois : c'est la frontiere exacte."""
         payload = self._send(2)
 
-        self.assertIn('attendances', payload)
-        self.assertEqual(len(payload['attendances']), 2)
+        self.assertIsInstance(payload, list)
+        self.assertEqual(len(payload), 2)
+
+    def test_no_wrapping_key_is_ever_sent(self):
+        """Regression : {"attendances": [...]} fait disparaitre le lot.
+
+        Le recepteur en fait un objet, cherche `timestamp` dessus, ne trouve
+        rien et repond 200 sans avoir rien enregistre. Aucune forme envoyee ne
+        doit donc porter de cle d'enveloppe.
+        """
+        for n in (1, 2, 5, 17):
+            payload = self._send(n)
+            keys = payload if isinstance(payload, dict) else {}
+            for interdit in ('attendances', 'attendance', 'records', 'data'):
+                self.assertNotIn(
+                    interdit, keys,
+                    f"enveloppe '{interdit}' reapparue pour un lot de {n}",
+                )
 
     def test_records_keep_the_same_fields_in_both_forms(self):
         """La branche ne doit changer que l'emballage, jamais le contenu."""
         alone = self._send(1)
-        among_others = self._send(3)['attendances'][0]
+        among_others = self._send(3)[0]
 
         self.assertEqual(set(alone), set(among_others))
         self.assertEqual(alone, among_others)
 
     def test_timestamp_is_sent_untouched_in_both_forms(self):
-        """L'heure murale du terminal traverse l'adapter sans retouche."""
+        """L'heure murale du terminal traverse l'adapter sans retouche.
+
+        Le recepteur fait `new DateTime($data->timestamp)->format('H:i:s')` :
+        il lit les chiffres tels quels, sans convertir vers son propre fuseau.
+        L'offset doit donc etre celui du site.
+        """
         expected = '2026-09-29T09:00:00+01:00'
 
         self.assertEqual(self._send(1)['timestamp'], expected)
-        self.assertEqual(self._send(3)['attendances'][0]['timestamp'], expected)
+        self.assertEqual(self._send(3)[0]['timestamp'], expected)
 
     def test_empty_list_sends_nothing(self):
         """Aucune requête pour un lot vide : le court-circuit est en amont."""

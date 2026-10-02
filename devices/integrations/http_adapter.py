@@ -7,7 +7,7 @@ accessibles via HTTP/REST.
 
 import httpx
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 from django.utils import timezone
@@ -87,7 +87,7 @@ class HTTPAdapter(ThirdPartyAdapter):
         self,
         method: str,
         url: str,
-        json: dict = None,
+        json: Union[dict, list] = None,
         params: dict = None,
     ) -> httpx.Response:
         """
@@ -302,24 +302,29 @@ class HTTPAdapter(ThirdPartyAdapter):
         try:
             url = self.build_url(self.config.attendance_endpoint)
 
-            # Forme du corps, imposee par les services destinataires :
-            #   - un seul pointage  -> l'objet nu, sans enveloppe ;
-            #   - deux ou plus      -> {"attendances": [ ... ]}.
+            # Forme du corps, imposee par le recepteur. Celui en service
+            # (data_recev.php) n'aiguille que sur deux formes :
             #
-            # C'est la seule forme que les recepteurs en service acceptent :
-            # elle est contrainte de l'exterieur, pas choisie ici. Ne pas
-            # l'uniformiser sans avoir verifie d'abord cote recepteur -- le
-            # depot a deja fait l'aller-retour (32f3f24 -> f6fc303 -> ici).
+            #     if (is_object($datareceive))       -> UN pointage, objet nu
+            #     else if (is_array($datareceive))   -> tableau RACINE, boucle
             #
-            # Le cout est connu et assume : la structure depend du nombre
-            # d'elements du lot, et bascule d'elle-meme selon ce qui s'est
-            # accumule depuis la derniere synchronisation. La synchro tournant
-            # chaque minute, le lot d'un seul element est le cas courant, celui
-            # a plusieurs le cas rare -- donc le moins eprouve. Il n'y a pas de
-            # `count` : l'objet nu n'a nulle part ou le porter, et ne l'exposer
-            # que dans la branche enveloppee ajouterait une troisieme forme.
+            # D'ou les deux formes ci-dessous, une par branche :
+            #     1 pointage   ->  { ... }
+            #     2 et plus    ->  [ { ... }, { ... } ]
+            #
+            # Surtout, pas d'enveloppe {"attendances": [...]} : json_decode en
+            # fait un objet, le recepteur part donc dans sa branche « un seul
+            # pointage », lit `timestamp` et `external_user_id` sur l'enveloppe
+            # (absents), ne trouve aucun matricule et n'insere rien. Il repond
+            # 200 sans rien avoir enregistre -- le lot entier disparait en
+            # silence. Le depot a deja fait l'aller-retour sur ce point
+            # (32f3f24 -> f6fc303 -> ea6844f -> ici) : verifier le recepteur
+            # avant d'y retoucher.
+            #
+            # Pas de `count` non plus : ni l'objet nu ni le tableau racine n'ont
+            # ou le porter, et le recepteur ne le lit pas.
             records = [att.to_dict() for att in attendance_list]
-            payload = records[0] if len(records) == 1 else {'attendances': records}
+            payload = records[0] if len(records) == 1 else records
 
             response = await self._request('POST', url, json=payload)
 
