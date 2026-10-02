@@ -302,22 +302,24 @@ class HTTPAdapter(ThirdPartyAdapter):
         try:
             url = self.build_url(self.config.attendance_endpoint)
 
-            # Corps toujours de la meme forme :
-            #     { "count": N, "attendances": [ ... ] }
-            # y compris pour un pointage unique, ou le tableau n'en contient
-            # qu'un. Faire dependre la structure de la taille du lot obligerait
-            # le recepteur a gerer deux cas pour la meme operation, et le
-            # basculement se produirait tout seul selon ce qui s'est accumule
-            # depuis la derniere synchronisation -- donc rarement en test, et
-            # un jour en production.
+            # Forme du corps, imposee par les services destinataires :
+            #   - un seul pointage  -> l'objet nu, sans enveloppe ;
+            #   - deux ou plus      -> {"attendances": [ ... ]}.
             #
-            # `count` est derive du tableau, jamais tenu a part : c'est la
-            # seule facon de garantir qu'il ne puisse pas mentir. Il reprend le
-            # vocabulaire du protocole TM20, ou le terminal annonce deja ses
-            # pointages sous la forme {"cmd": "sendlog", "count": N,
-            # "record": [...]}.
+            # C'est la seule forme que les recepteurs en service acceptent :
+            # elle est contrainte de l'exterieur, pas choisie ici. Ne pas
+            # l'uniformiser sans avoir verifie d'abord cote recepteur -- le
+            # depot a deja fait l'aller-retour (32f3f24 -> f6fc303 -> ici).
+            #
+            # Le cout est connu et assume : la structure depend du nombre
+            # d'elements du lot, et bascule d'elle-meme selon ce qui s'est
+            # accumule depuis la derniere synchronisation. La synchro tournant
+            # chaque minute, le lot d'un seul element est le cas courant, celui
+            # a plusieurs le cas rare -- donc le moins eprouve. Il n'y a pas de
+            # `count` : l'objet nu n'a nulle part ou le porter, et ne l'exposer
+            # que dans la branche enveloppee ajouterait une troisieme forme.
             records = [att.to_dict() for att in attendance_list]
-            payload = {'count': len(records), 'attendances': records}
+            payload = records[0] if len(records) == 1 else {'attendances': records}
 
             response = await self._request('POST', url, json=payload)
 

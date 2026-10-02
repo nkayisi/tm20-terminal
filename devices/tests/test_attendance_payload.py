@@ -1,15 +1,25 @@
 """
 Forme du corps envoyé aux services tiers pour les pointages.
 
-Le contrat est volontairement uniforme : toujours `{"count": N,
-"attendances": [...]}`, y compris quand le tableau ne contient qu'un seul
-pointage. C'est le cas le plus fréquent en exploitation (la synchronisation
-tourne chaque minute, il est rare que deux personnes badgent dans le même
-intervalle), donc celui qu'une forme variable ferait diverger du cas groupé
-sans qu'on le remarque.
+Le contrat est contraint par les récepteurs en service, et il est variable :
 
-`count` est dérivé du tableau au moment de l'envoi. Le test qui compte ici est
-celui qui vérifie qu'il ne peut pas en diverger.
+    1 pointage    ->  l'objet nu, sans enveloppe
+    2 et plus     ->  {"attendances": [ ... ]}
+
+Cette forme n'est pas un choix du dépôt — elle a déjà été uniformisée puis
+restaurée (32f3f24 -> f6fc303 -> ea6844f -> aujourd'hui). D'où ces tests : ils
+existent pour qu'une « simplification » bien intentionnée casse ici plutôt
+qu'en production, chez un récepteur qui ne sait lire qu'une des deux formes.
+
+Ce que les tests surveillent en priorité, c'est la **branche groupée**. En
+exploitation la synchronisation tourne chaque minute : il est rare que deux
+personnes badgent dans le même intervalle, donc le lot d'un seul élément est le
+cas normal et le lot groupé le cas qu'on ne voit presque jamais passer. C'est
+celui qui se casserait sans qu'on le remarque.
+
+Le contenu d'un enregistrement, lui, ne doit pas dépendre de la branche :
+`timestamp` porte l'heure murale du terminal avec son offset dans les deux cas
+(voir `test_terminal_time.py` pour l'origine de cette heure).
 """
 
 import asyncio
@@ -29,7 +39,7 @@ def _record(log_id: int) -> AttendanceData:
         enrollid=7,
         external_user_id=None,
         user_name=f'User#{log_id}',
-        timestamp='2026-09-29T09:00:00+00:00',
+        timestamp='2026-09-29T09:00:00+01:00',
         mode=0,
         inout=0,
     )
@@ -57,43 +67,46 @@ class AttendancePayloadShapeTests(TestCase):
 
         return req.await_args.kwargs['json']
 
-    def test_single_record_is_still_wrapped_in_a_list(self):
-        """Le cas courant : un pointage seul, mais dans un tableau."""
+    def test_single_record_is_sent_bare(self):
+        """Le cas courant : un pointage seul, sans enveloppe ni tableau."""
         payload = self._send(1)
 
-        self.assertEqual(payload['count'], 1)
-        self.assertIsInstance(payload['attendances'], list)
-        self.assertEqual(len(payload['attendances']), 1)
-        self.assertEqual(payload['attendances'][0]['log_id'], 1000)
+        self.assertIsInstance(payload, dict)
+        self.assertNotIn('attendances', payload)
+        self.assertEqual(payload['log_id'], 1000)
+        self.assertEqual(payload['enrollid'], 7)
 
-    def test_several_records_share_the_same_shape(self):
+    def test_several_records_are_wrapped(self):
+        """Le cas rare, donc celui que ces tests protegent vraiment."""
         payload = self._send(3)
 
-        self.assertEqual(payload['count'], 3)
+        self.assertIsInstance(payload, dict)
+        self.assertIsInstance(payload['attendances'], list)
         self.assertEqual(
             [r['log_id'] for r in payload['attendances']], [1000, 1001, 1002]
         )
 
-    def test_shape_does_not_depend_on_batch_size(self):
-        """Le point de tout l'exercice : aucune bascule selon la taille du lot."""
-        shapes = {tuple(sorted(self._send(n))) for n in (1, 2, 5)}
-        self.assertEqual(shapes, {('attendances', 'count')})
+    def test_two_records_already_use_the_wrapped_form(self):
+        """La bascule est a deux, pas a trois : c'est la frontiere exacte."""
+        payload = self._send(2)
 
-    def test_count_always_matches_the_array(self):
-        """`count` derive du tableau : il ne doit jamais pouvoir mentir."""
-        for n in (1, 2, 5, 17):
-            payload = self._send(n)
-            self.assertEqual(
-                payload['count'], len(payload['attendances']),
-                f"count incoherent pour un lot de {n}",
-            )
+        self.assertIn('attendances', payload)
+        self.assertEqual(len(payload['attendances']), 2)
 
-    def test_records_keep_the_same_fields_whatever_the_count(self):
-        alone = self._send(1)['attendances'][0]
+    def test_records_keep_the_same_fields_in_both_forms(self):
+        """La branche ne doit changer que l'emballage, jamais le contenu."""
+        alone = self._send(1)
         among_others = self._send(3)['attendances'][0]
 
         self.assertEqual(set(alone), set(among_others))
         self.assertEqual(alone, among_others)
+
+    def test_timestamp_is_sent_untouched_in_both_forms(self):
+        """L'heure murale du terminal traverse l'adapter sans retouche."""
+        expected = '2026-09-29T09:00:00+01:00'
+
+        self.assertEqual(self._send(1)['timestamp'], expected)
+        self.assertEqual(self._send(3)['attendances'][0]['timestamp'], expected)
 
     def test_empty_list_sends_nothing(self):
         """Aucune requête pour un lot vide : le court-circuit est en amont."""
