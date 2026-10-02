@@ -243,7 +243,7 @@ class TerminalLogsView(AuthenticatedView):
                     'id': log.id,
                     'enrollid': log.enrollid,
                     'user_name': log.user.name if log.user else None,
-                    'time': log.time.isoformat(),
+                    'time': timezone.localtime(log.time).isoformat(),
                     'mode': log.get_mode_display(),
                     'inout': log.get_inout_display(),
                     'event': log.event,

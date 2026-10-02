@@ -134,6 +134,9 @@ class AttendanceData:
     enrollid: int
     external_user_id: Optional[str]
     user_name: str
+    # ISO 8601 a l'heure murale du terminal, offset du site inclus
+    # ("2024-01-15T10:30:00+01:00") : c'est l'heure que l'agent a lue sur
+    # l'ecran, pas l'UTC stocke en base. Voir protocol.to_terminal_time.
     timestamp: str
     mode: int
     inout: int

@@ -20,6 +20,7 @@ from asgiref.sync import sync_to_async
 
 from ..models import Terminal, AttendanceLog, ThirdPartyConfig, TerminalThirdPartyMapping
 from ..integrations import AdapterFactory, AdapterResponse, AttendanceData
+from ..protocol import to_terminal_time
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +221,11 @@ class AttendanceSyncService:
             enrollid=log.enrollid,
             external_user_id=log.user.external_id if log.user else None,
             user_name=log.user.name if log.user else f"User#{log.enrollid}",
-            timestamp=log.time.isoformat(),
+            # Heure murale du terminal, offset inclus : le recepteur attend
+            # l'heure affichee sur l'ecran au moment du pointage. La base
+            # restitue de l'UTC, l'envoyer tel quel decalerait chaque pointage
+            # de l'offset du site pour tout recepteur qui ignore le suffixe.
+            timestamp=to_terminal_time(log.time).isoformat(),
             mode=log.mode,
             inout=log.inout,
             event=log.event,
@@ -425,7 +430,7 @@ class AttendanceSyncManager:
                 'terminal_sn': log.terminal.sn,
                 'enrollid': log.enrollid,
                 'user_name': log.user.name if log.user else None,
-                'time': log.time.isoformat(),
+                'time': timezone.localtime(log.time).isoformat(),
                 'sync_attempts': log.sync_attempts,
                 'sync_error': log.sync_error,
             }

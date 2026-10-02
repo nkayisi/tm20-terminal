@@ -325,7 +325,7 @@ class AttendanceService:
                 'sn': log.terminal.sn,
                 'enrollid': log.enrollid,
                 'user_name': log.user.name if log.user else None,
-                'time': log.time.isoformat(),
+                'time': timezone.localtime(log.time).isoformat(),
                 'mode': log.get_mode_display(),
                 'inout': log.get_inout_display(),
                 'access_granted': log.access_granted,
@@ -344,8 +344,11 @@ class AttendanceService:
             queryset = queryset.filter(terminal=terminal)
         
         total = queryset.count()
+        # localdate() et non now().date() : la journee est celle du site. A
+        # 00h30 locale, l'UTC est encore la veille et le compteur du jour
+        # repartirait avec une heure de retard.
         today = queryset.filter(
-            time__date=timezone.now().date()
+            time__date=timezone.localdate()
         ).count()
         
         return {

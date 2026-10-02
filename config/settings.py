@@ -182,7 +182,19 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = 'fr-fr'
-TIME_ZONE = 'UTC'
+
+# Fuseau de restitution : affichage dashboard, rendu des gabarits, bornes de
+# journee des rapports. Il doit suivre le site physique, pas UTC. Tous les
+# horodatages de ce projet naissent d'un terminal qui parle en heure murale
+# locale sans indiquer son fuseau ; laisser UTC ici ne change rien au stocke
+# (Postgres normalise en UTC dans tous les cas, USE_TZ=True) mais decale d'un
+# offset entier tout ce qui ressort cote lecture.
+#
+# Une seule variable commande les deux usages -- restitution ici, et
+# interpretation des horodatages recus via TM20_SETTINGS['TERMINAL_TIMEZONE']
+# plus bas. Deux reglages separes finiraient par diverger, et c'est
+# exactement la panne qu'on evite.
+TIME_ZONE = os.getenv('TM20_TERMINAL_TIMEZONE', '') or 'UTC'
 USE_I18N = True
 USE_TZ = True
 
@@ -261,9 +273,10 @@ TM20_SETTINGS = {
     'CONNECTION_TIMEOUT': int(os.getenv('TM20_CONNECTION_TIMEOUT', 600)),
     'MAX_LOG_BATCH_SIZE': 40,
     'REQUIRE_WHITELIST': env_bool('TM20_REQUIRE_WHITELIST', '0'),
-    # Fuseau dans lequel les terminaux expriment l'heure murale.
-    # Vide => on utilise TIME_ZONE (UTC). Ex: 'Africa/Kigali' pour un site UTC+2.
-    'TERMINAL_TIMEZONE': os.getenv('TM20_TERMINAL_TIMEZONE', '') or TIME_ZONE,
+    # Fuseau dans lequel les terminaux expriment l'heure murale. Identique a
+    # TIME_ZONE, qui vient de la meme variable d'environnement : terminaux et
+    # exploitant sont sur le meme site. Ex: 'Africa/Kigali' pour un site UTC+2.
+    'TERMINAL_TIMEZONE': TIME_ZONE,
 }
 
 LOG_DIR = Path(os.environ.get("LOG_DIR", "/tmp/logs"))

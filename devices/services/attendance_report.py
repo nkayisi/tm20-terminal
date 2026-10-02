@@ -34,7 +34,7 @@ class AttendanceReportService:
             Liste de dictionnaires avec les données d'entrée/sortie
         """
         if not date:
-            date = timezone.now().date()
+            date = timezone.localdate()
         
         # Récupérer tous les logs du jour
         logs_queryset = AttendanceLog.objects.filter(
@@ -200,7 +200,7 @@ class AttendanceReportService:
             Dictionnaire avec les anomalies détectées
         """
         if not date:
-            date = timezone.now().date()
+            date = timezone.localdate()
         
         logs = AttendanceLog.objects.filter(
             terminal=terminal,

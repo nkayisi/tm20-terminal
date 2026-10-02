@@ -8,8 +8,9 @@ accessibles via HTTP/REST.
 import httpx
 import logging
 from typing import Any, Dict, List, Optional
-from datetime import datetime
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+
+from django.utils import timezone
 
 from .base import (
     ThirdPartyAdapter,
@@ -205,7 +206,7 @@ class HTTPAdapter(ThirdPartyAdapter):
                 metadata={
                     'count': len(users),
                     'source': self.config.name,
-                    'timestamp': datetime.utcnow().isoformat(),
+                    'timestamp': timezone.now().isoformat(),
                 }
             )
 

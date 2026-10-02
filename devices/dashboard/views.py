@@ -104,8 +104,9 @@ class DashboardAPIView(LoginRequiredMixin, View):
         # Nombre de terminaux connectés (depuis Redis - partage inter-processus)
         connected_count = DeviceManager.get_connected_count_from_redis()
         
-        # Stats des logs (aujourd'hui)
-        today = timezone.now().date()
+        # Stats des logs (aujourd'hui). localdate() et non now().date() : la
+        # journee est celle du site, pas celle d'UTC.
+        today = timezone.localdate()
         logs_today = AttendanceLog.objects.filter(
             time__date=today
         ).count()
@@ -289,21 +290,25 @@ class LogsAPIView(LoginRequiredMixin, View):
             queryset = queryset.filter(terminal__sn=sn)
         
         logs = queryset[:limit]
-        
-        data = [
-            {
+
+        # `time_human` est une heure nue, sans offset : elle doit etre deja
+        # dans le fuseau du site, sinon elle ne correspond plus a ce que le
+        # terminal affichait et rien dans la chaine ne permet de le rattraper.
+        # La base restitue de l'UTC, la conversion est donc explicite.
+        data = []
+        for log in logs:
+            local_time = timezone.localtime(log.time)
+            data.append({
                 'id': log.id,
                 'sn': log.terminal.sn,
                 'enrollid': log.enrollid,
                 'user_name': log.user.name if log.user else f'User #{log.enrollid}',
-                'time': log.time.isoformat(),
-                'time_human': log.time.strftime('%H:%M:%S'),
+                'time': local_time.isoformat(),
+                'time_human': local_time.strftime('%H:%M:%S'),
                 'mode': log.get_mode_display(),
                 'inout': log.get_inout_display(),
                 'inout_class': 'success' if log.inout == 0 else 'info',
-            }
-            for log in logs
-        ]
+            })
         
         return JsonResponse({'logs': data})
 

@@ -802,8 +802,9 @@ class TerminalSchedule(models.Model):
     
     def is_currently_effective(self):
         """Vérifie si l'horaire est actuellement effectif"""
-        from datetime import date
-        today = date.today()
+        # Date du site, pas celle de l'horloge OS du conteneur (UTC) : une
+        # plage d'effectivite se compare au calendrier local.
+        today = timezone.localdate()
         
         if not self.is_active:
             return False

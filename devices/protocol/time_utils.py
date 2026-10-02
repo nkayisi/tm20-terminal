@@ -39,3 +39,20 @@ def make_terminal_aware(dt):
     if dt is None or timezone.is_aware(dt):
         return dt
     return dt.replace(tzinfo=terminal_timezone())
+
+
+def to_terminal_time(dt):
+    """Ramène un datetime aware à l'heure murale du terminal.
+
+    Opération inverse de :func:`make_terminal_aware` : la base restitue de
+    l'UTC (``USE_TZ=True``), or un destinataire extérieur attend l'heure que
+    l'agent a lue sur l'écran du terminal. Le datetime reste aware, l'offset
+    voyage donc avec la valeur (``2024-01-15T10:30:00+01:00``) : le récepteur
+    peut recalculer l'instant s'il le souhaite, mais n'a rien à deviner s'il se
+    contente de lire les chiffres.
+
+    Retourne ``dt`` inchangé s'il est None.
+    """
+    if dt is None:
+        return dt
+    return dt.astimezone(terminal_timezone())

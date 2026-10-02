@@ -34,7 +34,9 @@ class ScheduleManager:
             TerminalSchedule ou None
         """
         if check_date is None:
-            check_date = date.today()
+            # Date du site : date.today() suivrait l'horloge OS du conteneur,
+            # qui est en UTC, et changerait de jour une heure trop tot.
+            check_date = timezone.localdate()
         
         if weekday is None:
             weekday = check_date.weekday()
@@ -63,7 +65,7 @@ class ScheduleManager:
         Returns:
             Dict[weekday, TerminalSchedule]
         """
-        today = date.today()
+        today = timezone.localdate()
         
         schedules = {}
         
@@ -267,6 +269,14 @@ class ScheduleManager:
         Returns:
             Dict avec status, delay_minutes, is_late, etc.
         """
+        # `check_in_time` / `check_out_time` sont des heures murales locales
+        # (TimeField, sans fuseau), alors qu'un `AttendanceLog.time` restitue
+        # de l'UTC. Comparer les deux directement decalerait chaque ecart de
+        # l'offset du site : un pointage a 08h05 pour une arrivee attendue a
+        # 08h00 ressortirait a 55 minutes d'avance. Un datetime naif passe
+        # par un appelant est deja pris pour de l'heure murale locale.
+        if timezone.is_aware(attendance_time):
+            attendance_time = timezone.localtime(attendance_time)
         attendance_time_only = attendance_time.time()
         
         if is_check_in:
