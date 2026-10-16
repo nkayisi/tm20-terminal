@@ -33,11 +33,15 @@ ces chiffres littéralement, sans conversion (voir `test_terminal_time.py`).
 import asyncio
 from unittest.mock import AsyncMock, patch
 
+from asgiref.sync import async_to_sync
 from django.test import TestCase
 
 from devices.integrations.base import AttendanceData
 from devices.integrations.http_adapter import HTTPAdapter
-from devices.models import ThirdPartyConfig
+from devices.models import AttendanceLog, Terminal, ThirdPartyConfig
+from devices.protocol import TM20Parser
+from devices.services.attendance import AttendanceService
+from devices.services.attendance_sync_service import AttendanceSyncService
 
 
 def _record(log_id: int) -> AttendanceData:
@@ -142,3 +146,105 @@ class AttendancePayloadShapeTests(TestCase):
 
         req.assert_not_awaited()
         self.assertTrue(result.success)
+
+
+class InOutIsConsistentAtEveryLevelTests(TestCase):
+    """`inout` doit porter la meme valeur a la racine et dans `metadata`.
+
+    Le terminal emet toujours `inout: 0` -- la spec reserve ce champ au couple
+    lecteur maitre / lecteur esclave (section 6.1-1) -- et c'est le serveur qui
+    tient le sens de passage, par alternance bornee a la journee civile. La
+    racine portait donc la valeur derivee pendant que `metadata`, recopie de
+    `raw_payload`, gardait le 0 du terminal : le meme pointage se lisait
+    « entree » ou « sortie » selon le niveau ouvert, et une sortie descendue
+    dans `metadata` se comptait comme une entree sans rien pour le signaler.
+
+    L'alignement se fait a l'envoi, pas a l'insertion : `raw_payload` reste la
+    trame telle que le terminal l'a emise, et les pointages deja en base --
+    dont le 0 est fige -- partent eux aussi avec la bonne valeur.
+    """
+
+    def setUp(self):
+        self.terminal = Terminal.objects.create(sn='TESTSNIO01', model='TM20')
+        self.config = ThirdPartyConfig.objects.create(
+            name='API RH inout',
+            base_url='https://rh.example.com',
+            attendance_endpoint='/api/v1/attendance',
+            auth_type='none',
+        )
+
+    def _receive(self, *times):
+        """Rejoue un sendlog pour un meme agent, dans l'ordre donne."""
+        for emitted in times:
+            message = TM20Parser.parse_sendlog({
+                'cmd': 'sendlog',
+                'sn': self.terminal.sn,
+                'count': 1,
+                'logindex': 0,
+                'record': [{
+                    'enrollid': 7, 'time': emitted, 'mode': 1, 'inout': 0,
+                }],
+            })
+            async_to_sync(AttendanceService().process_logs)(self.terminal, message)
+
+        return list(AttendanceLog.objects.order_by('time'))
+
+    def _payloads(self, logs):
+        service = AttendanceSyncService(self.config, self.terminal)
+        return [service._log_to_attendance_data(log).to_dict() for log in logs]
+
+    def test_entry_and_exit_agree_at_both_levels(self):
+        logs = self._receive('2026-09-29 08:00:00', '2026-09-29 17:00:00')
+        entree, sortie = self._payloads(logs)
+
+        self.assertEqual(entree['inout'], 0)
+        self.assertEqual(entree['metadata']['inout'], 0)
+
+        # Le cas qui divergeait : la sortie derivee contre le 0 du terminal.
+        self.assertEqual(sortie['inout'], 1)
+        self.assertEqual(sortie['metadata']['inout'], 1)
+
+    def test_no_record_ever_contradicts_itself(self):
+        """Quatre passages : l'alternance ne doit jamais desynchroniser."""
+        logs = self._receive(
+            '2026-09-29 08:00:00', '2026-09-29 12:00:00',
+            '2026-09-29 13:00:00', '2026-09-29 17:00:00',
+        )
+        payloads = self._payloads(logs)
+
+        self.assertEqual([p['inout'] for p in payloads], [0, 1, 0, 1])
+        for p in payloads:
+            self.assertEqual(
+                p['inout'], p['metadata']['inout'],
+                f"log_id={p['log_id']} se contredit entre ses deux niveaux",
+            )
+
+    def test_the_stored_frame_keeps_the_terminal_value(self):
+        """L'alignement est un fait d'envoi, pas une reecriture de l'historique.
+
+        `raw_payload` reste la trame emise par le terminal : c'est elle qui
+        permet de rejouer ou d'auditer un lot. La valeur derivee vit dans la
+        colonne `inout`, et n'est recopiee dans `metadata` qu'au moment de
+        construire le corps.
+        """
+        logs = self._receive('2026-09-29 08:00:00', '2026-09-29 17:00:00')
+        sortie = logs[1]
+
+        self.assertEqual(sortie.inout, 1)
+        self.assertEqual(sortie.raw_payload['inout'], 0)
+        self.assertEqual(self._payloads([sortie])[0]['metadata']['inout'], 1)
+
+    def test_the_rest_of_the_frame_is_untouched(self):
+        """Seul `inout` est aligne ; le reste de la trame traverse intact."""
+        logs = self._receive('2026-09-29 17:00:00')
+        metadata = self._payloads(logs)[0]['metadata']
+
+        # `time` reste l'horodatage nu du terminal : c'est `timestamp` a la
+        # racine qui porte l'heure murale avec son offset.
+        self.assertEqual(metadata['time'], '2026-09-29 17:00:00')
+        self.assertEqual(metadata['enrollid'], 7)
+        self.assertEqual(metadata['mode'], 1)
+        self.assertEqual(
+            set(metadata), set(logs[0].raw_payload),
+            "l'alignement ne doit ni ajouter ni retirer de cle",
+        )

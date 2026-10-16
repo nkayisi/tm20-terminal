@@ -45,5 +45,8 @@ urlpatterns = [
     path('health/', health_check, name='health_check'),
     path('admin/', admin.site.urls),
     path('api/', include('devices.urls')),
+    # Documentation d'integration : publique a dessein, elle est lue par
+    # l'equipe qui ecrit le recepteur et qui n'a pas de compte ici.
+    path('docs/', include('devices.docs.urls', namespace='docs')),
     path('dashboard/', include('devices.dashboard.urls', namespace='dashboard')),
 ]

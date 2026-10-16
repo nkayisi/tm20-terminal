@@ -1,0 +1,551 @@
+{% extends "base_auth.html" %}
+{% load ui %}
+
+{% comment %}
+Contrat d'intégration des pointages, en page publique.
+
+Pendant web de `docs/payload_pointages_services_tiers.md`. Les deux exemples
+sont tenus synchronisés avec la chaîne d'émission par
+`devices/tests/test_docs_payload_page.py` : ils ne peuvent pas devenir faux
+sans faire échouer la suite. Les modifier à la main sans toucher au code fait
+rougir le test — c'est voulu.
+
+La page étend `base_auth.html` plutôt que la coquille du dashboard : celle-ci
+suppose un utilisateur connecté, et le lecteur visé n'a pas de compte ici.
+{% endcomment %}
+
+{% block title %}Pointages — contrat d'intégration{% endblock %}
+
+{% block body %}
+<div class="min-h-full">
+
+  {# ---------------------------------------------------------- en-tête #}
+  <header class="border-b border-border bg-surface-card">
+    <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+      <div class="flex items-center gap-3">
+        <span class="flex size-10 items-center justify-center rounded-lg bg-brand text-brand-on">
+          {% icon "finger-print" "size-6" %}
+        </span>
+        <span>
+          <span class="block text-base font-bold leading-tight">TM20</span>
+          <span class="block text-xs text-content-subtle">Documentation d'intégration</span>
+        </span>
+      </div>
+
+      <div class="flex items-center gap-0.5 rounded-md border border-border p-0.5"
+           role="group" aria-label="Thème de l'interface">
+        <button type="button" data-theme-option="light" class="btn btn-ghost btn-sm !px-2"
+                aria-label="Thème clair" title="Thème clair">{% icon "sun" "size-4" %}</button>
+        <button type="button" data-theme-option="dark" class="btn btn-ghost btn-sm !px-2"
+                aria-label="Thème sombre" title="Thème sombre">{% icon "moon" "size-4" %}</button>
+        <button type="button" data-theme-option="system" class="btn btn-ghost btn-sm !px-2"
+                aria-label="Suivre le système" title="Suivre le système">{% icon "computer-desktop" "size-4" %}</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+
+    {# ---------------------------------------------------------- titre #}
+    <div class="max-w-3xl">
+      <p class="text-xs font-medium uppercase tracking-widest text-content-subtle">
+        tm20_server → service tiers
+      </p>
+      <h1 class="mt-3 text-3xl font-bold leading-tight sm:text-4xl">
+        Pointages : le corps qu'on vous envoie
+      </h1>
+      <p class="mt-4 text-lg leading-relaxed text-content-secondary">
+        Tout ce qu'il faut pour écrire le récepteur : les deux formes de corps
+        possibles, les douze champs, et les trois endroits où une lecture
+        approximative coûte des heures de diagnostic.
+      </p>
+    </div>
+
+    <div class="card card-pad mt-8 flex flex-wrap gap-x-10 gap-y-3 text-sm">
+      <span class="text-content-secondary">
+        <span class="font-medium text-content">Exemples</span> extraits du code d'envoi
+      </span>
+      <span class="text-content-secondary">
+        <span class="font-medium text-content">Fuseau du site</span> Africa/Kinshasa (UTC+1)
+      </span>
+      <span class="text-content-secondary">
+        <span class="font-medium text-content">Cadence</span> une passe par minute
+      </span>
+    </div>
+
+    {# ---------------------------------------------------- enveloppe #}
+    <section class="mt-14" id="enveloppe">
+      <h2 class="text-xl font-semibold">Enveloppe HTTP</h2>
+      <p class="mt-1 text-sm text-content-subtle">Ce qui arrive sur votre endpoint</p>
+
+      <div class="mt-5 overflow-x-auto rounded-lg border border-border bg-surface-sunken">
+        <pre class="p-4 font-mono text-xs leading-relaxed text-content-secondary"><code>POST {base_url}{attendance_endpoint}
+     <span class="text-warning-text">https://rh.example.com/api/v1/attendance</span>
+
+<span class="text-brand-text">Content-Type</span>:  application/json
+<span class="text-brand-text">Authorization</span>: Bearer &lt;token&gt;</code></pre>
+      </div>
+
+      <p class="mt-5 max-w-3xl leading-relaxed text-content-secondary">
+        L'authentification est configurable par service : aucune,
+        <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">Bearer</code>,
+        clé d'API (le jeton nu dans l'en-tête que vous nommez) ou
+        <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">Basic</code>.
+        Le nom de l'en-tête est paramétrable, et des en-têtes supplémentaires
+        peuvent s'ajouter.
+      </p>
+
+      <p class="mt-3 max-w-3xl leading-relaxed text-content-secondary">
+        <span class="font-medium text-content">Codes acceptés comme succès :</span>
+        200, 201, 202. Tout le reste renvoie le lot en file de reprise.
+      </p>
+    </section>
+
+    {# ------------------------------------------------------- formes #}
+    <section class="mt-14" id="formes">
+      <h2 class="text-xl font-semibold">Deux formes de corps, pas une de plus</h2>
+      <p class="mt-1 text-sm text-content-subtle">La branche dépend de la taille du lot</p>
+
+      <p class="mt-5 max-w-3xl leading-relaxed text-content-secondary">
+        Le récepteur en service n'aiguille que sur <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">is_object</code>
+        ou <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">is_array</code>.
+        L'émetteur s'y conforme exactement.
+      </p>
+
+      <div class="mt-6 grid gap-4 sm:grid-cols-2">
+        <div class="card card-pad">
+          <p class="text-xs font-medium uppercase tracking-wide text-content-subtle">
+            Lot d'un seul pointage
+          </p>
+          <p class="mt-3 font-mono text-2xl font-medium text-brand-text">{ … }</p>
+          <p class="mt-3 text-sm leading-relaxed text-content-secondary">
+            L'objet nu. C'est le cas normal : une passe par minute, et deux
+            personnes badgent rarement dans la même minute.
+          </p>
+        </div>
+        <div class="card card-pad">
+          <p class="text-xs font-medium uppercase tracking-wide text-content-subtle">
+            Lot de deux et plus
+          </p>
+          <p class="mt-3 font-mono text-2xl font-medium text-brand-text">[ { … }, { … } ]</p>
+          <p class="mt-3 text-sm leading-relaxed text-content-secondary">
+            Un tableau <strong class="font-semibold text-content">racine</strong>, à
+            parcourir. La bascule se fait à deux, pas à trois.
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-6 rounded-lg border-l-4 border-danger bg-danger-subtle p-5">
+        <p class="text-xs font-semibold uppercase tracking-widest text-danger-text">
+          Jamais d'enveloppe
+        </p>
+        <p class="mt-3 leading-relaxed text-content-secondary">
+          <code class="rounded bg-surface-card px-1.5 py-0.5 font-mono text-[0.85em]">{"attendances": [...]}</code>
+          ne sera jamais envoyé, et ne doit jamais être attendu.
+          <code class="rounded bg-surface-card px-1.5 py-0.5 font-mono text-[0.85em]">json_decode</code>
+          en ferait un objet : le récepteur partirait dans sa branche « un seul
+          pointage », y chercherait <code class="rounded bg-surface-card px-1.5 py-0.5 font-mono text-[0.85em]">timestamp</code>
+          et <code class="rounded bg-surface-card px-1.5 py-0.5 font-mono text-[0.85em]">external_user_id</code>
+          qui n'y sont pas, n'insérerait rien — et répondrait quand même 200.
+        </p>
+        <p class="mt-3 leading-relaxed text-content-secondary">
+          Le lot entier disparaîtrait sans trace. Le dépôt a déjà fait
+          l'aller-retour sur cette forme ; elle est aujourd'hui verrouillée par
+          des tests.
+        </p>
+      </div>
+    </section>
+
+    {# ----------------------------------------------------- exemples #}
+    <section class="mt-14" id="exemples">
+      <h2 class="text-xl font-semibold">Exemples réels</h2>
+      <p class="mt-1 text-sm text-content-subtle">
+        Produits par le code d'envoi, rejoué sur de vraies trames
+      </p>
+
+      <p class="mt-5 max-w-3xl leading-relaxed text-content-secondary">
+        Ces deux corps ne sont pas des illustrations écrites à la main : ils
+        sortent de la chaîne d'émission elle-même, et un test de la suite
+        échoue s'ils cessent de correspondre à ce qu'elle produit.
+      </p>
+
+      <h3 class="mt-8 text-base font-semibold">Une entrée, seule</h3>
+      <div class="mt-3 overflow-hidden rounded-lg border border-border">
+        <div class="flex items-center justify-between gap-4 border-b border-border bg-surface-sunken px-4 py-2.5">
+          <span class="text-xs font-medium uppercase tracking-wide text-content-subtle">
+            Corps de la requête
+          </span>
+          <span class="badge" data-tone="brand">objet nu</span>
+        </div>
+        <div class="overflow-x-auto bg-surface-card">
+          <pre class="p-4 font-mono text-xs leading-relaxed text-content-secondary"><code data-example="single">{
+            <span class="text-brand-text">&quot;log_id&quot;</span>: <span class="text-success-text">1</span>,
+            <span class="text-brand-text">&quot;terminal_sn&quot;</span>: <span class="text-warning-text">&quot;ZYTJ20128568&quot;</span>,
+            <span class="text-brand-text">&quot;enrollid&quot;</span>: <span class="text-success-text">7</span>,
+            <span class="text-brand-text">&quot;external_user_id&quot;</span>: <span class="text-warning-text">&quot;EMP-00142&quot;</span>,
+            <span class="text-brand-text">&quot;user_name&quot;</span>: <span class="text-warning-text">&quot;KAYISIRIRYA Nelson&quot;</span>,
+            <span class="text-brand-text">&quot;timestamp&quot;</span>: <span class="text-warning-text">&quot;2026-10-16T07:02:11+01:00&quot;</span>,
+            <span class="text-brand-text">&quot;mode&quot;</span>: <span class="text-success-text">8</span>,
+            <span class="text-brand-text">&quot;inout&quot;</span>: <span class="text-success-text">0</span>,
+            <span class="text-brand-text">&quot;event&quot;</span>: <span class="text-success-text">0</span>,
+            <span class="text-brand-text">&quot;temperature&quot;</span>: <span class="text-info-text">null</span>,
+            <span class="text-brand-text">&quot;access_granted&quot;</span>: <span class="text-info-text">true</span>,
+            <span class="text-brand-text">&quot;metadata&quot;</span>: {
+              <span class="text-brand-text">&quot;enrollid&quot;</span>: <span class="text-success-text">7</span>,
+              <span class="text-brand-text">&quot;time&quot;</span>: <span class="text-warning-text">&quot;2026-10-16 07:02:11&quot;</span>,
+              <span class="text-brand-text">&quot;mode&quot;</span>: <span class="text-success-text">8</span>,
+              <span class="text-brand-text">&quot;inout&quot;</span>: <span class="text-success-text">0</span>,
+              <span class="text-brand-text">&quot;event&quot;</span>: <span class="text-success-text">0</span>,
+              <span class="text-brand-text">&quot;temp&quot;</span>: <span class="text-info-text">null</span>,
+              <span class="text-brand-text">&quot;verifymode&quot;</span>: <span class="text-success-text">1</span>
+            }
+          }</code></pre>
+        </div>
+      </div>
+
+      <h3 class="mt-8 text-base font-semibold">Un lot de trois</h3>
+      <p class="mt-2 max-w-3xl leading-relaxed text-content-secondary">
+        Une sortie, une entrée, puis un événement de porte — le seul cas où
+        <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">external_user_id</code>
+        vaut <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">null</code>
+        dans un corps émis.
+      </p>
+      <div class="mt-3 overflow-hidden rounded-lg border border-border">
+        <div class="flex items-center justify-between gap-4 border-b border-border bg-surface-sunken px-4 py-2.5">
+          <span class="text-xs font-medium uppercase tracking-wide text-content-subtle">
+            Corps de la requête
+          </span>
+          <span class="badge" data-tone="brand">tableau racine</span>
+        </div>
+        <div class="overflow-x-auto bg-surface-card">
+          <pre class="p-4 font-mono text-xs leading-relaxed text-content-secondary"><code data-example="batch">[
+            {
+              <span class="text-brand-text">&quot;log_id&quot;</span>: <span class="text-success-text">2</span>,
+              <span class="text-brand-text">&quot;terminal_sn&quot;</span>: <span class="text-warning-text">&quot;ZYTJ20128568&quot;</span>,
+              <span class="text-brand-text">&quot;enrollid&quot;</span>: <span class="text-success-text">7</span>,
+              <span class="text-brand-text">&quot;external_user_id&quot;</span>: <span class="text-warning-text">&quot;EMP-00142&quot;</span>,
+              <span class="text-brand-text">&quot;user_name&quot;</span>: <span class="text-warning-text">&quot;KAYISIRIRYA Nelson&quot;</span>,
+              <span class="text-brand-text">&quot;timestamp&quot;</span>: <span class="text-warning-text">&quot;2026-10-16T12:31:04+01:00&quot;</span>,
+              <span class="text-brand-text">&quot;mode&quot;</span>: <span class="text-success-text">8</span>,
+              <span class="text-brand-text">&quot;inout&quot;</span>: <span class="text-success-text">1</span>,
+              <span class="text-brand-text">&quot;event&quot;</span>: <span class="text-success-text">0</span>,
+              <span class="text-brand-text">&quot;temperature&quot;</span>: <span class="text-success-text">36.4</span>,
+              <span class="text-brand-text">&quot;access_granted&quot;</span>: <span class="text-info-text">true</span>,
+              <span class="text-brand-text">&quot;metadata&quot;</span>: {
+                <span class="text-brand-text">&quot;enrollid&quot;</span>: <span class="text-success-text">7</span>,
+                <span class="text-brand-text">&quot;time&quot;</span>: <span class="text-warning-text">&quot;2026-10-16 12:31:04&quot;</span>,
+                <span class="text-brand-text">&quot;mode&quot;</span>: <span class="text-success-text">8</span>,
+                <span class="text-brand-text">&quot;inout&quot;</span>: <span class="text-success-text">1</span>,
+                <span class="text-brand-text">&quot;event&quot;</span>: <span class="text-success-text">0</span>,
+                <span class="text-brand-text">&quot;temp&quot;</span>: <span class="text-success-text">36.4</span>,
+                <span class="text-brand-text">&quot;verifymode&quot;</span>: <span class="text-success-text">1</span>
+              }
+            },
+            {
+              <span class="text-brand-text">&quot;log_id&quot;</span>: <span class="text-success-text">3</span>,
+              <span class="text-brand-text">&quot;terminal_sn&quot;</span>: <span class="text-warning-text">&quot;ZYTJ20128568&quot;</span>,
+              <span class="text-brand-text">&quot;enrollid&quot;</span>: <span class="text-success-text">12</span>,
+              <span class="text-brand-text">&quot;external_user_id&quot;</span>: <span class="text-warning-text">&quot;EMP-00210&quot;</span>,
+              <span class="text-brand-text">&quot;user_name&quot;</span>: <span class="text-warning-text">&quot;MUKENDI Grace&quot;</span>,
+              <span class="text-brand-text">&quot;timestamp&quot;</span>: <span class="text-warning-text">&quot;2026-10-16T12:31:52+01:00&quot;</span>,
+              <span class="text-brand-text">&quot;mode&quot;</span>: <span class="text-success-text">3</span>,
+              <span class="text-brand-text">&quot;inout&quot;</span>: <span class="text-success-text">0</span>,
+              <span class="text-brand-text">&quot;event&quot;</span>: <span class="text-success-text">0</span>,
+              <span class="text-brand-text">&quot;temperature&quot;</span>: <span class="text-info-text">null</span>,
+              <span class="text-brand-text">&quot;access_granted&quot;</span>: <span class="text-info-text">true</span>,
+              <span class="text-brand-text">&quot;metadata&quot;</span>: {
+                <span class="text-brand-text">&quot;enrollid&quot;</span>: <span class="text-success-text">12</span>,
+                <span class="text-brand-text">&quot;time&quot;</span>: <span class="text-warning-text">&quot;2026-10-16 12:31:52&quot;</span>,
+                <span class="text-brand-text">&quot;mode&quot;</span>: <span class="text-success-text">3</span>,
+                <span class="text-brand-text">&quot;inout&quot;</span>: <span class="text-success-text">0</span>,
+                <span class="text-brand-text">&quot;event&quot;</span>: <span class="text-success-text">0</span>,
+                <span class="text-brand-text">&quot;temp&quot;</span>: <span class="text-info-text">null</span>,
+                <span class="text-brand-text">&quot;verifymode&quot;</span>: <span class="text-success-text">3</span>
+              }
+            },
+            {
+              <span class="text-brand-text">&quot;log_id&quot;</span>: <span class="text-success-text">4</span>,
+              <span class="text-brand-text">&quot;terminal_sn&quot;</span>: <span class="text-warning-text">&quot;ZYTJ20128568&quot;</span>,
+              <span class="text-brand-text">&quot;enrollid&quot;</span>: <span class="text-success-text">0</span>,
+              <span class="text-brand-text">&quot;external_user_id&quot;</span>: <span class="text-info-text">null</span>,
+              <span class="text-brand-text">&quot;user_name&quot;</span>: <span class="text-warning-text">&quot;User#0&quot;</span>,
+              <span class="text-brand-text">&quot;timestamp&quot;</span>: <span class="text-warning-text">&quot;2026-10-16T14:05:09+01:00&quot;</span>,
+              <span class="text-brand-text">&quot;mode&quot;</span>: <span class="text-success-text">0</span>,
+              <span class="text-brand-text">&quot;inout&quot;</span>: <span class="text-success-text">0</span>,
+              <span class="text-brand-text">&quot;event&quot;</span>: <span class="text-success-text">0</span>,
+              <span class="text-brand-text">&quot;temperature&quot;</span>: <span class="text-info-text">null</span>,
+              <span class="text-brand-text">&quot;access_granted&quot;</span>: <span class="text-info-text">true</span>,
+              <span class="text-brand-text">&quot;metadata&quot;</span>: {
+                <span class="text-brand-text">&quot;enrollid&quot;</span>: <span class="text-success-text">0</span>,
+                <span class="text-brand-text">&quot;time&quot;</span>: <span class="text-warning-text">&quot;2026-10-16 14:05:09&quot;</span>,
+                <span class="text-brand-text">&quot;mode&quot;</span>: <span class="text-success-text">0</span>,
+                <span class="text-brand-text">&quot;inout&quot;</span>: <span class="text-success-text">0</span>,
+                <span class="text-brand-text">&quot;event&quot;</span>: <span class="text-success-text">0</span>,
+                <span class="text-brand-text">&quot;temp&quot;</span>: <span class="text-info-text">null</span>,
+                <span class="text-brand-text">&quot;verifymode&quot;</span>: <span class="text-success-text">0</span>
+              }
+            }
+          ]</code></pre>
+        </div>
+      </div>
+    </section>
+
+    {# ------------------------------------------------------- champs #}
+    <section class="mt-14" id="champs">
+      <h2 class="text-xl font-semibold">Champs</h2>
+      <p class="mt-1 text-sm text-content-subtle">Douze clés, les mêmes dans les deux formes</p>
+
+      <div class="card mt-5">
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr><th>Champ</th><th>Type</th><th>Sens</th></tr>
+            </thead>
+            <tbody class="align-top">
+              <tr>
+                <td class="font-mono text-xs font-medium text-brand-text">log_id</td>
+                <td class="whitespace-nowrap text-xs text-content-subtle">entier</td>
+                <td class="text-content-secondary">Clé du pointage côté tm20_server. Stable — utilisable comme clé d'idempotence.</td>
+              </tr>
+              <tr>
+                <td class="font-mono text-xs font-medium text-brand-text">terminal_sn</td>
+                <td class="whitespace-nowrap text-xs text-content-subtle">chaîne</td>
+                <td class="text-content-secondary">Numéro de série du terminal émetteur.</td>
+              </tr>
+              <tr>
+                <td class="font-mono text-xs font-medium text-brand-text">enrollid</td>
+                <td class="whitespace-nowrap text-xs text-content-subtle">entier</td>
+                <td class="text-content-secondary">ID d'enrôlement <em>interne au terminal</em>. Unique par terminal seulement, jamais globalement. 0 = événement de porte.</td>
+              </tr>
+              <tr>
+                <td class="font-mono text-xs font-medium text-brand-text">external_user_id</td>
+                <td class="whitespace-nowrap text-xs text-content-subtle">chaîne · null</td>
+                <td class="text-content-secondary">Matricule de l'agent dans votre système. <code class="rounded bg-surface-sunken px-1 py-0.5 font-mono text-[0.85em]">null</code> uniquement pour un événement de porte.</td>
+              </tr>
+              <tr>
+                <td class="font-mono text-xs font-medium text-brand-text">user_name</td>
+                <td class="whitespace-nowrap text-xs text-content-subtle">chaîne</td>
+                <td class="text-content-secondary">Nom connu du serveur, ou <code class="rounded bg-surface-sunken px-1 py-0.5 font-mono text-[0.85em]">User#&lt;enrollid&gt;</code>. Pour l'enquête humaine, pas pour l'appariement.</td>
+              </tr>
+              <tr>
+                <td class="font-mono text-xs font-medium text-brand-text">timestamp</td>
+                <td class="whitespace-nowrap text-xs text-content-subtle">ISO 8601</td>
+                <td class="text-content-secondary">Heure murale du terminal, offset du site inclus.</td>
+              </tr>
+              <tr>
+                <td class="font-mono text-xs font-medium text-brand-text">mode</td>
+                <td class="whitespace-nowrap text-xs text-content-subtle">entier</td>
+                <td class="text-content-secondary">Moyen de vérification : 0/1 empreinte, 2 mot de passe, 3 carte, 8 visage, 13 QR code.</td>
+              </tr>
+              <tr>
+                <td class="font-mono text-xs font-medium text-brand-text">inout</td>
+                <td class="whitespace-nowrap text-xs text-content-subtle">entier</td>
+                <td class="text-content-secondary">0 entrée, 1 sortie. Dérivé par le serveur.</td>
+              </tr>
+              <tr>
+                <td class="font-mono text-xs font-medium text-brand-text">event</td>
+                <td class="whitespace-nowrap text-xs text-content-subtle">entier</td>
+                <td class="text-content-secondary">0 normal, 1 à 4 touches F1 à F4.</td>
+              </tr>
+              <tr>
+                <td class="font-mono text-xs font-medium text-brand-text">temperature</td>
+                <td class="whitespace-nowrap text-xs text-content-subtle">décimal · null</td>
+                <td class="text-content-secondary">Température relevée, si le terminal en remonte une.</td>
+              </tr>
+              <tr>
+                <td class="font-mono text-xs font-medium text-brand-text">access_granted</td>
+                <td class="whitespace-nowrap text-xs text-content-subtle">booléen</td>
+                <td class="text-content-secondary">Décision d'accès du serveur au moment du pointage.</td>
+              </tr>
+              <tr>
+                <td class="font-mono text-xs font-medium text-brand-text">metadata</td>
+                <td class="whitespace-nowrap text-xs text-content-subtle">objet</td>
+                <td class="text-content-secondary">Trame telle que le terminal l'a émise — <code class="rounded bg-surface-sunken px-1 py-0.5 font-mono text-[0.85em]">inout</code> mis à part.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    {# -------------------------------------------------------- règles #}
+    <section class="mt-14" id="regles">
+      <h2 class="text-xl font-semibold">Trois règles qui coûtent cher si on les lit mal</h2>
+      <p class="mt-1 text-sm text-content-subtle">Chacune a déjà produit un incident</p>
+
+      <article class="card card-pad mt-5 border-l-4 border-l-brand">
+        <p class="text-xs font-semibold uppercase tracking-widest text-brand-text">
+          Règle · sens de passage
+        </p>
+        <h3 class="mt-3 text-lg font-semibold">
+          <code class="font-mono">inout</code> porte la même valeur aux deux niveaux
+        </h3>
+        <p class="mt-3 leading-relaxed text-content-secondary">
+          Le terminal émet <strong class="font-semibold text-content">toujours</strong>
+          <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">inout: 0</code> :
+          la spec réserve ce champ au couple lecteur maître / lecteur esclave.
+          C'est donc le serveur qui tient le sens de passage, par alternance
+          bornée à la journée civile du site — le premier pointage d'un jour est
+          toujours une entrée, de sorte qu'une sortie oubliée laisse une journée
+          à un seul pointage au lieu de décaler d'un cran tout l'historique
+          suivant.
+        </p>
+        <p class="mt-3 leading-relaxed text-content-secondary">
+          La racine et <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">metadata</code>
+          portent cette valeur dérivée, identiques. Auparavant
+          <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">metadata.inout</code>
+          recopiait le 0 du terminal : le même pointage se lisait « entrée » ou
+          « sortie » selon le niveau ouvert, et une sortie lue dans
+          <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">metadata</code>
+          se comptait comme une entrée sans rien pour le signaler. Voir
+          <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">log_id: 2</code>
+          dans l'exemple ci-dessus — 1 aux deux niveaux.
+        </p>
+      </article>
+
+      <article class="card card-pad mt-4 border-l-4 border-l-brand">
+        <p class="text-xs font-semibold uppercase tracking-widest text-brand-text">
+          Règle · horodatage
+        </p>
+        <h3 class="mt-3 text-lg font-semibold">
+          <code class="font-mono">timestamp</code> est l'heure de l'écran, pas de l'UTC
+        </h3>
+        <p class="mt-3 leading-relaxed text-content-secondary">
+          La base stocke de l'UTC, mais le corps porte l'heure murale du
+          terminal avec l'offset du site — <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">+01:00</code>,
+          Africa/Kinshasa. C'est l'heure que l'agent a lue sur l'écran en
+          badgeant. Un récepteur qui fait
+          <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">new DateTime($data-&gt;timestamp)-&gt;format('H:i:s')</code>
+          lit les chiffres littéralement et tombe juste, sans rien convertir.
+        </p>
+        <p class="mt-3 leading-relaxed text-content-secondary">
+          <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">metadata.time</code>
+          est l'horodatage brut du terminal,
+          <strong class="font-semibold text-content">sans fuseau</strong>. Ne pas
+          s'en servir pour dater quoi que ce soit : c'est
+          <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">timestamp</code>
+          qui fait foi.
+        </p>
+      </article>
+
+      <article class="card card-pad mt-4 border-l-4 border-l-brand">
+        <p class="text-xs font-semibold uppercase tracking-widest text-brand-text">
+          Règle · appariement
+        </p>
+        <h3 class="mt-3 text-lg font-semibold">
+          Sans <code class="font-mono">external_user_id</code>, le pointage ne part pas
+        </h3>
+        <p class="mt-3 leading-relaxed text-content-secondary">
+          <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">external_user_id</code>
+          est le seul identifiant qui ait un sens dans votre système.
+          <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">enrollid</code>
+          ne le remplace pas : c'est un compteur interne au terminal, il se
+          recycle, et deux terminaux attribuent le même
+          <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">enrollid</code>
+          à deux personnes différentes. Le couple
+          <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">terminal_sn</code>
+          + <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">enrollid</code>
+          identifie bien la ligne, mais il n'identifie pas un agent dans votre
+          référentiel.
+        </p>
+        <p class="mt-3 leading-relaxed text-content-secondary">
+          Un pointage dont l'agent n'a pas de matricule n'est donc
+          <strong class="font-semibold text-content">pas émis</strong>. Vous ne
+          verrez jamais de chaîne vide dans ce champ, et ne le verrez à
+          <code class="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.85em]">null</code>
+          que pour un événement de porte.
+        </p>
+
+        <div class="table-wrap mt-5 rounded-lg border border-border">
+          <table class="table">
+            <thead>
+              <tr><th>Situation</th><th>Comportement</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-content-secondary">Agent avec matricule renseigné</td>
+                <td><span class="badge" data-tone="success">émis</span></td>
+              </tr>
+              <tr>
+                <td class="text-content-secondary">Agent connu, matricule absent</td>
+                <td><span class="badge" data-tone="warning">écarté · reste en attente</span></td>
+              </tr>
+              <tr>
+                <td class="text-content-secondary">Enrôlement inconnu du serveur</td>
+                <td><span class="badge" data-tone="warning">écarté · reste en attente</span></td>
+              </tr>
+              <tr>
+                <td class="text-content-secondary">Événement de porte (enrollid 0)</td>
+                <td><span class="badge" data-tone="success">émis · matricule null</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-5 leading-relaxed text-content-secondary">
+          Écarté ne veut pas dire perdu : le pointage reste en attente en base.
+          Le jour où le matricule est renseigné sur l'agent, la passe suivante
+          l'emporte sans reprise manuelle, horodatage d'origine compris.
+        </p>
+        <p class="mt-3 leading-relaxed text-content-secondary">
+          Le filtre est délibéré. Émis quand même, ces pointages recevaient un
+          200 sans que le récepteur ait rien enregistré faute de matricule, et
+          basculaient « synchronisé ». Ils comptaient pour transmis d'un côté et
+          n'existaient pas de l'autre — la perte silencieuse exacte que le reste
+          de cette chaîne s'emploie à éviter.
+        </p>
+
+        <div class="mt-5 overflow-x-auto rounded-lg border border-border bg-surface-sunken">
+          <pre class="p-4 font-mono text-xs leading-relaxed text-content-secondary"><code>WARNING  3 pointage(s) ecarte(s), matricule (external_id) absent --
+         non rattachables cote API RH : <span class="text-warning-text">ZYTJ20128568#12</span>, <span class="text-warning-text">ZYTJ20128568#31</span></code></pre>
+        </div>
+
+        <p class="mt-5 leading-relaxed text-content-secondary">
+          Les événements de porte échappent à la règle : aucun agent n'est en
+          cause et aucun matricule ne leur viendra jamais, donc les retenir les
+          laisserait en attente pour toujours.
+        </p>
+      </article>
+    </section>
+
+    {# -------------------------------------------------------- cycle #}
+    <section class="mt-14" id="cycle">
+      <h2 class="text-xl font-semibold">Cycle de vie et reprise</h2>
+      <p class="mt-1 text-sm text-content-subtle">Ce qui se passe après votre réponse</p>
+
+      <p class="mt-5 max-w-3xl leading-relaxed text-content-secondary">
+        Chaque pointage passe d'<em>en attente</em> à <em>envoyé</em>, ou à
+        <em>échec</em> après épuisement des tentatives. En cas d'échec HTTP, le
+        lot repart avec un délai croissant — 1, 5, 15, 60 puis 240 minutes.
+        Au-delà de cinq tentatives le pointage bascule en échec et attend une
+        relance manuelle.
+      </p>
+      <p class="mt-3 max-w-3xl leading-relaxed text-content-secondary">
+        Un pointage écarté faute de matricule ne suit pas ce cycle : il n'a pas
+        été émis, donc il ne compte pas comme un échec. Son compteur de
+        tentatives reste à zéro et il demeure en attente.
+      </p>
+
+      <div class="mt-6 rounded-lg border-l-4 border-warning bg-warning-subtle p-5">
+        <p class="text-xs font-semibold uppercase tracking-widest text-warning-text">
+          Ce qu'on attend de vous
+        </p>
+        <p class="mt-3 leading-relaxed text-content-secondary">
+          Un 200 vaut acquittement : le serveur n'inspecte pas le corps de votre
+          réponse pour décider du statut.
+          <strong class="font-semibold text-content">Un récepteur qui rejette une
+          ligne doit le signaler par un code HTTP</strong> — sinon la ligne est
+          perdue en silence, des deux côtés.
+        </p>
+      </div>
+    </section>
+
+    <footer class="mt-16 border-t border-border pt-6 text-sm text-content-subtle">
+      <p>
+        tm20_server · contrat pointages → services tiers · Africa/Kinshasa (UTC+1)
+      </p>
+    </footer>
+
+  </div>
+</div>
+{% endblock %}

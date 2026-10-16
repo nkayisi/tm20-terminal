@@ -73,6 +73,10 @@ class AttendanceSyncService:
         self.terminal = terminal
         self.adapter = AdapterFactory.create(config)
         self.logger = logging.getLogger(f"{__name__}.{config.name}")
+        # Pointages ecartes faute de matricule pendant la passe en cours. Ils
+        # restent `pending` en base : sans cette memoire, la boucle de
+        # `sync_pending_attendance` les relirait indefiniment.
+        self._skipped_ids: set = set()
     
     async def sync_pending_attendance(
         self,
@@ -90,7 +94,10 @@ class AttendanceSyncService:
             AttendanceSyncResult avec le détail des opérations
         """
         batch_size = batch_size or self.DEFAULT_BATCH_SIZE
-        
+        # Les pointages ecartes a la passe precedente ont pu recevoir leur
+        # matricule depuis : on leur redonne leur chance a chaque passe.
+        self._skipped_ids.clear()
+
         total_sent = 0
         total_failed = 0
         total_skipped = 0
@@ -174,13 +181,71 @@ class AttendanceSyncService:
             Q(sync_attempts=0) |
             Q(sync_attempts__lt=self.MAX_RETRY_ATTEMPTS)
         )
-        
+
+        if self._skipped_ids:
+            queryset = queryset.exclude(id__in=self._skipped_ids)
+
         return list(queryset.order_by('time')[:limit])
     
+    @staticmethod
+    def _is_matchable(log: AttendanceLog) -> bool:
+        """Le recepteur peut-il rattacher ce pointage a quelqu'un ?
+
+        Il apparie sur le matricule, c'est-a-dire `external_user_id`. Sans lui
+        il n'a rien a quoi rattacher la ligne : `enrollid` est un compteur
+        interne au terminal, il se recycle, et deux terminaux donnent le meme a
+        deux personnes differentes. Le couple `terminal_sn` + `enrollid`
+        identifie la ligne, pas l'agent.
+
+        Les evenements de porte (`enrollid == 0`) echappent a la regle : aucun
+        agent n'est en cause, aucun matricule ne leur viendra jamais, et les
+        retenir ici les laisserait `pending` pour toujours.
+        """
+        if log.enrollid == 0:
+            return True
+        return bool(log.user and log.user.external_id)
+
     async def _send_batch(self, logs: List[AttendanceLog]) -> AttendanceSyncResult:
-        """Envoie un batch de pointages vers le service tiers"""
+        """Envoie un batch de pointages vers le service tiers.
+
+        Les pointages sans matricule sont ecartes avant l'envoi plutot
+        qu'emis : le recepteur repondrait `200` sans rien avoir enregistre, et
+        le serveur les marquerait `sent`. Ils compteraient pour synchronises
+        d'un cote, n'existeraient pas de l'autre -- la perte silencieuse exacte
+        que le reste de cette chaine s'emploie a eviter.
+
+        Ils restent `pending`, et c'est le point : le jour ou l'`external_id`
+        est renseigne sur l'agent, la passe suivante les emporte sans
+        intervention. `skipped` les compte pour qu'ils soient visibles entre
+        temps.
+        """
+        sendable, unmatchable = [], []
+        for log in logs:
+            (sendable if self._is_matchable(log) else unmatchable).append(log)
+
+        if unmatchable:
+            self._skipped_ids.update(log.id for log in unmatchable)
+            agents = sorted({
+                f"{log.terminal.sn}#{log.enrollid}" for log in unmatchable
+            })
+            self.logger.warning(
+                f"{len(unmatchable)} pointage(s) ecarte(s), matricule "
+                f"(external_id) absent -- non rattachables cote "
+                f"{self.config.name} : {', '.join(agents)}"
+            )
+
+        skipped = AttendanceSyncResult(
+            success=True,
+            skipped=len(unmatchable),
+            details={'unmatchable_log_ids': [log.id for log in unmatchable]},
+        )
+
+        if not sendable:
+            return skipped
+
+        logs = sendable
         attendance_data = [self._log_to_attendance_data(log) for log in logs]
-        
+
         try:
             response = await self.adapter.send_attendance(attendance_data)
             
@@ -189,7 +254,8 @@ class AttendanceSyncService:
                 return AttendanceSyncResult(
                     success=True,
                     sent=len(logs),
-                    details={'response': response.metadata}
+                    skipped=skipped.skipped,
+                    details={'response': response.metadata, **skipped.details}
                 )
             else:
                 await self._mark_logs_failed(
@@ -199,18 +265,22 @@ class AttendanceSyncService:
                 return AttendanceSyncResult(
                     success=False,
                     failed=len(logs),
+                    skipped=skipped.skipped,
                     errors=[response.message],
-                    failed_log_ids=[log.id for log in logs]
+                    failed_log_ids=[log.id for log in logs],
+                    details=skipped.details
                 )
-                
+
         except Exception as e:
             self.logger.error(f"Erreur envoi batch: {e}")
             await self._mark_logs_failed([log.id for log in logs], str(e))
             return AttendanceSyncResult(
                 success=False,
                 failed=len(logs),
+                skipped=skipped.skipped,
                 errors=[str(e)],
-                failed_log_ids=[log.id for log in logs]
+                failed_log_ids=[log.id for log in logs],
+                details=skipped.details
             )
     
     def _log_to_attendance_data(self, log: AttendanceLog) -> AttendanceData:
@@ -231,8 +301,33 @@ class AttendanceSyncService:
             event=log.event,
             temperature=float(log.temperature) if log.temperature else None,
             access_granted=log.access_granted,
-            metadata=log.raw_payload,
+            metadata=self._metadata_for(log),
         )
+
+    @staticmethod
+    def _metadata_for(log: AttendanceLog) -> Dict[str, Any]:
+        """Trame brute du terminal, avec `inout` aligne sur le sens derive.
+
+        `raw_payload` conserve ce que le terminal a emis, et le terminal emet
+        toujours `inout: 0` : la spec reserve ce champ au couple lecteur
+        maitre / lecteur esclave (section 6.1-1), c'est le serveur qui tient le
+        sens de passage par alternance journaliere. Recopie telle quelle, la
+        trame contredisait donc la racine des qu'il s'agissait d'une sortie --
+        meme pointage, deux valeurs opposees selon le niveau lu. Un recepteur
+        qui descend dans `metadata` (par habitude, ou parce que la racine lui
+        manque un jour) comptait la sortie comme une entree, sans rien pour le
+        signaler.
+
+        Les deux niveaux portent desormais la valeur derivee. L'alignement se
+        fait ici plutot qu'a l'insertion : il couvre ainsi les pointages deja
+        en base, dont le `raw_payload` fige un 0 que rien ne reecrira.
+
+        `metadata['time']` reste l'horodatage brut du terminal, sans fuseau :
+        c'est `timestamp` a la racine qui porte l'heure murale avec offset.
+        """
+        metadata = dict(log.raw_payload or {})
+        metadata['inout'] = log.inout
+        return metadata
     
     @sync_to_async
     def _mark_logs_sent(self, log_ids: List[int]):
