@@ -88,6 +88,13 @@ module.exports = {
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+
+        // Famille a part, et non un ajout en tete de `mono` : JetBrains Mono
+        // n'est chargee que par la documentation d'integration. Posee dans
+        // `mono`, elle serait reclamee par le dashboard et la connexion, qui
+        // ne la chargent pas -- une substitution silencieuse, invisible au
+        // developpement et visible nulle part ailleurs qu'a l'oeil.
+        spec: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
     },
   },

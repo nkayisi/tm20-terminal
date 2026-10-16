@@ -29,6 +29,12 @@
           rel="stylesheet" />
     <link rel="stylesheet" href="{% static 'dist/app.css' %}" />
     <script defer src="{% static 'js/app.js' %}"></script>
+
+    {% comment %}
+    Point d'extension pour les pages qui ont besoin d'une ressource en propre
+    (une fonte de documentation, par exemple). Vide pour la connexion.
+    {% endcomment %}
+    {% block head_extra %}{% endblock %}
   </head>
 
   <body class="h-full font-sans">
